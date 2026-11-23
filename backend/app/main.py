@@ -510,6 +510,8 @@ def generate_branded_report(result_id: int, db: Session = Depends(get_db)):
     review = db.query(ResultReview).filter_by(result_id=result_id).first()
     if not review:
         raise HTTPException(409, "A recorded review is required before generating the final report")
+    if not all([result.patient_name, result.patient_age, result.patient_address]):
+        raise HTTPException(422, "Enter the patient name, age and address before generating the final report")
 
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_CENTER, TA_LEFT
@@ -526,11 +528,16 @@ def generate_branded_report(result_id: int, db: Session = Depends(get_db)):
         theme = colors.HexColor("#0879D9")
     work = Path(tempfile.mkdtemp(prefix="cbc-branded-report-"))
     pdf_path = work / f"CBC-{result.id}-final.pdf"
-    phone_text = profile.phone or "0775-872-454, 0751-319-201"
+    phone_text = profile.phone or ""
+    if "0775-872-454" not in phone_text or "0751-319-201" not in phone_text:
+        phone_text = (phone_text + " | " if phone_text else "") + "0775-872-454, 0751-319-201"
     clinic_name = escape(profile.clinic_name or "Clinic")
     clinic_address = escape(profile.address or "")
     header_text = escape(profile.header_text or "")
-    footer_text = escape(profile.footer_text or "Powered by ClinicHIS")
+    footer_label = profile.footer_text or ""
+    if "Powered by ClinicHIS" not in footer_label:
+        footer_label = (footer_label + " | " if footer_label else "") + "Powered by ClinicHIS"
+    footer_text = escape(footer_label)
     logo_path = profile.logo_path if profile.logo_path and Path(profile.logo_path).is_file() else None
 
     def draw_page(canvas, document):
@@ -780,6 +787,8 @@ def generate_report(result_id: int, template_id: int, db: Session = Depends(get_
     template = db.get(ReportTemplate, template_id)
     if not review or not template or not template.filename.lower().endswith(".docx"):
         raise HTTPException(422, "A reviewed result and DOCX template are required")
+    if not all([result.patient_name, result.patient_age, result.patient_address]):
+        raise HTTPException(422, "Enter the patient name, age and address before generating the final report")
     if not Path(template.storage_path).is_file():
         raise HTTPException(404, "Template file is unavailable")
     work = Path(tempfile.mkdtemp(prefix="cbc-report-"))
@@ -838,7 +847,13 @@ def generate_report(result_id: int, template_id: int, db: Session = Depends(get_
             fp = footer.paragraphs[0]
             fp.clear()
             fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            footer_run = fp.add_run(f"{profile.footer_text or 'Powered by ClinicHIS'} | {profile.phone or '0775-872-454, 0751-319-201'}")
+            footer_label = profile.footer_text or ""
+            if "Powered by ClinicHIS" not in footer_label:
+                footer_label = (footer_label + " | " if footer_label else "") + "Powered by ClinicHIS"
+            contacts = profile.phone or ""
+            if "0775-872-454" not in contacts or "0751-319-201" not in contacts:
+                contacts = (contacts + " | " if contacts else "") + "0775-872-454, 0751-319-201"
+            footer_run = fp.add_run(f"{footer_label} | {contacts}")
             footer_run.font.size = Pt(8)
             footer_run.font.color.rgb = RGBColor(83, 101, 121)
 

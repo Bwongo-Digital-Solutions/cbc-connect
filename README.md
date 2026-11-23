@@ -11,7 +11,7 @@ CBC Connect is an independent CBC analyzer results receiving and review workspac
 - Pending results move to `REVIEWED` only after a review record is submitted.
 - Per-result audit events for registration, ingestion, review and template upload.
 - Configurable analyte display names, units and decimal precision. Configuration does not convert incoming values.
-- DOCX/PDF report-template file upload and metadata listing.
+- DOCX/PDF report-template upload, plus one-click generation of an editable starter DOCX when the clinic has no DOCX template.
 
 ## Run locally
 ```bash
@@ -31,6 +31,8 @@ PostgreSQL (host tools only): localhost:5434 (container port 5432; bound to loop
 - Configure HTTPS, secure secrets and backups before using any network-accessible deployment.
 
 ## Report templates
+If a clinic has no DOCX template, use **Report templates → Generate sample template** to create an editable starter DOCX. The action reuses an existing DOCX template rather than creating duplicates. Customize and approve the starter under local laboratory procedures before use.
+
 DOCX templates are rendered with docxtpl and converted to PDF using headless LibreOffice. Template authors can use these Jinja placeholders: sample_id, patient_reference, analyzer, reviewer, comments, received_at, reviewed_at, and results. The results variable is a list of objects with code, value, unit and flag fields. Uploaded PDF files are retained for reference but are not mergeable templates.
 
 ## API overview

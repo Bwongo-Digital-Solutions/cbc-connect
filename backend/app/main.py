@@ -295,6 +295,18 @@ def generate_sample_template(request: Request, db: Session = Depends(get_db)):
                          "uploaded_at": item.uploaded_at}}
 
 
+@app.get("/api/v1/templates/{template_id}/download")
+def download_template(template_id: int, db: Session = Depends(get_db)):
+    item = db.get(ReportTemplate, template_id)
+    if not item:
+        raise HTTPException(404, "Template not found")
+    path = Path(item.storage_path)
+    if not path.is_file():
+        raise HTTPException(404, "Template file is unavailable")
+    media_type = item.content_type or "application/octet-stream"
+    return FileResponse(path, media_type=media_type, filename=item.filename)
+
+
 @app.post("/api/v1/templates", status_code=201)
 async def upload_template(request: Request, name: str = Form(...), uploaded_by: str = Form(...),
                           file: UploadFile = File(...), db: Session = Depends(get_db)):

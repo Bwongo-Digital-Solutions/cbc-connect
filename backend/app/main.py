@@ -271,6 +271,7 @@ async def save_annotated_document(result_id: int, document_id: int, request: Req
         content_type=allowed[suffix], storage_path=str(target), uploaded_by=actor,
         parent_document_id=source.id, document_kind="ANNOTATED", annotation_data=annotation_data)
     db.add(item)
+    db.flush()
     audit(db, actor, "RESULT_DOCUMENT_ANNOTATED_COPY_SAVED", result_id,
           {"source_document_id": source.id, "annotated_document_id": item.id, "filename": item.filename})
     db.commit()

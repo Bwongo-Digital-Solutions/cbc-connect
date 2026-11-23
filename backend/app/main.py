@@ -10,10 +10,10 @@ from .schemas import AnalyzerPayload, ResultOut, ManualSample, ReviewIn, Analyte
 from .security import authenticate, create_access_token, get_current_user, hash_password, decode_access_token
 from fastapi import Request
 from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 from docxtpl import DocxTemplate
 import subprocess, tempfile, shutil
 
-Base.metadata.create_all(bind=engine)
 app = FastAPI(title="CBC Connect API", version="0.2.0")
 origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(CORSMiddleware, allow_origins=[x.strip() for x in origins],
@@ -110,14 +110,14 @@ def result_detail(result_id: int, db: Session = Depends(get_db)):
     return {"result": ResultOut.model_validate(result), "review": review, "audit": events}
 
 @app.post("/api/v1/samples", response_model=ResultOut, status_code=201)
-def create_sample(payload: ManualSample, db: Session = Depends(get_db)):
+def create_sample(payload: ManualSample, request: Request, db: Session = Depends(get_db)):
     result = CBCResult(sample_id=payload.sample_id, patient_reference=payload.patient_reference,
         analyzer="MANUAL", device_id="manual-entry", observed_at=payload.collected_at,
         status="PENDING_REVIEW", values={})
     db.add(result)
     try:
         db.flush()
-        audit(db, "sample-registration", "SAMPLE_REGISTERED", result.id,
+        audit(db, request.state.user.get("sub", "staff"), "SAMPLE_REGISTERED", result.id,
               {"sample_id": payload.sample_id, "patient_reference": payload.patient_reference})
         db.commit()
         db.refresh(result)
@@ -146,7 +146,7 @@ def ingest(payload: AnalyzerPayload, x_device_id: str = Header(default="unregist
     return result
 
 @app.post("/api/v1/results/{result_id}/review")
-def review_result(result_id: int, payload: ReviewIn, db: Session = Depends(get_db)):
+def review_result(result_id: int, payload: ReviewIn, request: Request, db: Session = Depends(get_db)):
     result = db.get(CBCResult, result_id)
     if not result:
         raise HTTPException(404, "Result not found")
@@ -159,11 +159,12 @@ def review_result(result_id: int, payload: ReviewIn, db: Session = Depends(get_d
     if original_keys != reviewed_keys:
         raise HTTPException(422, "Reviewed analytes must match the received analyte set")
     corrected = {k: v.model_dump() for k, v in payload.reviewed_values.items()}
-    review = ResultReview(result_id=result_id, reviewer=payload.reviewer,
+    reviewer_identity = request.state.user.get("sub", "staff")
+    review = ResultReview(result_id=result_id, reviewer=reviewer_identity,
                           comments=payload.comments, reviewed_values=corrected)
     db.add(review)
     result.status = "REVIEWED"
-    audit(db, payload.reviewer, "RESULT_REVIEWED", result_id,
+    audit(db, reviewer_identity, "RESULT_REVIEWED", result_id,
           {"comments": payload.comments, "corrections_made": corrected != result.values})
     db.commit()
     return {"message": "Review recorded", "status": result.status, "reviewed_at": review.reviewed_at}
@@ -217,7 +218,7 @@ def list_templates(db: Session = Depends(get_db)):
     return db.query(ReportTemplate).order_by(ReportTemplate.uploaded_at.desc()).all()
 
 @app.post("/api/v1/templates", status_code=201)
-async def upload_template(name: str = Form(...), uploaded_by: str = Form(...),
+async def upload_template(request: Request, name: str = Form(...), uploaded_by: str = Form(...),
                           file: UploadFile = File(...), db: Session = Depends(get_db)):
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in {".docx", ".pdf"}:
@@ -230,9 +231,9 @@ async def upload_template(name: str = Form(...), uploaded_by: str = Form(...),
     target.write_bytes(content)
     item = ReportTemplate(name=name, filename=file.filename or safe_name,
         content_type=file.content_type or "application/octet-stream",
-        storage_path=str(target), uploaded_by=uploaded_by)
+        storage_path=str(target), uploaded_by=request.state.user.get("sub", "staff"))
     db.add(item)
-    audit(db, uploaded_by, "REPORT_TEMPLATE_UPLOADED", details={"name": name, "filename": file.filename})
+    audit(db, request.state.user.get("sub", "staff"), "REPORT_TEMPLATE_UPLOADED", details={"name": name, "filename": file.filename})
     db.commit()
     db.refresh(item)
     return {"id": item.id, "name": item.name, "filename": item.filename, "uploaded_at": item.uploaded_at}
@@ -258,17 +259,17 @@ def generate_report(result_id: int, template_id: int, db: Session = Depends(get_
             "results":[{"code":k,"value":v.get("value"),"unit":v.get("unit") or "",
                        "flag":v.get("flag") or ""} for k,v in review.reviewed_values.items()]}
         doc.render(context)
-        docx_path = work / f"CBC-{result.sample_id}.docx"
+        docx_path = work / f"CBC-{result.id}.docx"
         doc.save(docx_path)
         completed = subprocess.run(["libreoffice","--headless","--convert-to","pdf","--outdir",str(work),str(docx_path)],
                                    capture_output=True, timeout=60)
-        pdf_path = work / f"CBC-{result.sample_id}.pdf"
+        pdf_path = work / f"CBC-{result.id}.pdf"
         if completed.returncode != 0 or not pdf_path.exists():
             raise HTTPException(500, "PDF conversion failed")
         audit(db, "report-service", "REPORT_GENERATED", result_id, {"template_id":template_id})
         db.commit()
-        return FileResponse(pdf_path, media_type="application/pdf", filename=f"CBC-{result.sample_id}.pdf",
-                            background=None)
+        return FileResponse(pdf_path, media_type="application/pdf", filename=f"CBC-{result.id}.pdf",
+                            background=BackgroundTask(shutil.rmtree, work, ignore_errors=True))
     except HTTPException:
         raise
     except Exception as exc:

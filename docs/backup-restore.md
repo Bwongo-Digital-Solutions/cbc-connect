@@ -7,7 +7,7 @@ Run from the project directory after configuring the environment file:
 sh scripts/backup.sh
 ```
 
-The script creates a compressed PostgreSQL dump and a separate archive of the Docker Compose template_data volume under backups/. Keep backups encrypted, access-controlled and off-host. Test restoration regularly. Do not commit backups to Git.
+The script creates a compressed PostgreSQL dump plus separate archives of the Docker Compose template_data and result_documents volumes under backups/. The document archive contains uploaded CBC source reports. Keep all backups encrypted, access-controlled and off-host. Test restoration regularly. Do not commit backups to Git.
 
 ## Restore database
 Stop application writes, identify the target database, then restore a known-good dump:
@@ -32,3 +32,20 @@ docker run --rm -v YOUR_TEMPLATE_VOLUME:/data -v "$PWD/backups:/backup" alpine:3
 ```
 
 Validate the restored files, database consistency, login, result retrieval and report generation before returning to service.
+
+
+## Restore uploaded source documents
+
+Find the Compose volume with:
+
+```sh
+docker volume ls --filter label=com.docker.compose.volume=result_documents
+```
+
+Then restore the matching document archive into the selected volume:
+
+```sh
+docker run --rm -v YOUR_DOCUMENT_VOLUME:/data -v "$PWD/backups:/backup" alpine:3.20 sh -c 'tar -xzf /backup/cbc-connect-documents-YYYYMMDDTHHMMSSZ.tar.gz -C /data'
+```
+
+Restore the database and document volume from the same backup time so document records continue to point to the correct files.

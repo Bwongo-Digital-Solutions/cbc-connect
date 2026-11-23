@@ -15,9 +15,11 @@ export default function DocumentAnnotator({document,resultId,onClose,onSave}:Pro
  const baseRef=useRef<HTMLCanvasElement>(null), overlayRef=useRef<HTMLCanvasElement>(null), pdfRef=useRef<any>(null), imageRef=useRef<HTMLImageElement|null>(null)
  const overlays=useRef<Record<number,string>>({}), drawing=useRef(false), last=useRef<{x:number;y:number}|null>(null)
  const [page,setPage]=useState(1),[pages,setPages]=useState(1),[tool,setTool]=useState<Tool>('highlight'),[comments,setComments]=useState<Mark[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[dimensions,setDimensions]=useState({width:0,height:0})
- const isPdf=document.content_type==='application/pdf'
+ const isWord=/\\.(doc|docx)$/i.test(document.filename)
+ const isPdf=document.content_type==='application/pdf'||isWord
+ const sourcePath=API+'/api/v1/results/'+resultId+'/documents/'+document.id+(isWord?'/preview':'')
  useEffect(()=>{let active=true;(async()=>{try{
-  const response=await fetch(API+'/api/v1/results/'+resultId+'/documents/'+document.id,{headers:{Authorization:'Bearer '+localStorage.getItem('cbc_token')}})
+  const response=await fetch(sourcePath,{headers:{Authorization:'Bearer '+localStorage.getItem('cbc_token')}})
   if(!response.ok)throw new Error('Unable to load source document')
   const data=await response.arrayBuffer()
   if(isPdf){pdfRef.current=await getDocument({data}).promise;if(!active)return;setPages(pdfRef.current.numPages);await renderPage(1)}
@@ -32,7 +34,7 @@ export default function DocumentAnnotator({document,resultId,onClose,onSave}:Pro
  function pointerMove(e:PointerEvent<HTMLCanvasElement>){if(!drawing.current||!last.current)return;const c=overlayRef.current;if(!c)return;const p=point(e),ctx=c.getContext('2d')!;ctx.save();ctx.beginPath();ctx.moveTo(last.current.x,last.current.y);ctx.lineTo(p.x,p.y);ctx.lineCap='round';ctx.lineJoin='round';ctx.lineWidth=tool==='highlight'?20:3;ctx.strokeStyle=tool==='highlight'?'#ffe45c':'#e12d39';ctx.globalAlpha=tool==='highlight'?.34:1;ctx.stroke();ctx.restore();last.current=p}
  function pointerUp(){drawing.current=false;last.current=null;const c=overlayRef.current;if(c)overlays.current[page]=c.toDataURL('image/png')}
  async function save(){setBusy(true);setError('');try{const c=overlayRef.current;if(c)overlays.current[page]=c.toDataURL('image/png');let blob:Blob
-  if(isPdf){const original=await fetch(API+'/api/v1/results/'+resultId+'/documents/'+document.id,{headers:{Authorization:'Bearer '+localStorage.getItem('cbc_token')}}).then(r=>r.arrayBuffer());const pdf=await PDFDocument.load(original);for(let i=0;i<pdf.getPageCount();i++){const data=overlays.current[i+1];if(!data)continue;const png=await pdf.embedPng(data);const pg=pdf.getPage(i);pg.drawImage(png,{x:0,y:0,width:pg.getWidth(),height:pg.getHeight()})}blob=new Blob([await pdf.save()],{type:'application/pdf'})}
+  if(isPdf){const original=await fetch(sourcePath,{headers:{Authorization:'Bearer '+localStorage.getItem('cbc_token')}}).then(r=>r.arrayBuffer());const pdf=await PDFDocument.load(original);for(let i=0;i<pdf.getPageCount();i++){const data=overlays.current[i+1];if(!data)continue;const png=await pdf.embedPng(data);const pg=pdf.getPage(i);pg.drawImage(png,{x:0,y:0,width:pg.getWidth(),height:pg.getHeight()})}blob=new Blob([await pdf.save()],{type:'application/pdf'})}
   else{const base=baseRef.current!,out=globalThis.document.createElement('canvas');out.width=base.width;out.height=base.height;const ctx=out.getContext('2d')!;ctx.drawImage(base,0,0);if(overlays.current[1]){const mark=new Image();await new Promise<void>((resolve,reject)=>{mark.onload=()=>resolve();mark.onerror=()=>reject(new Error('Unable to render annotations'));mark.src=overlays.current[1]});ctx.drawImage(mark,0,0)}blob=await new Promise<Blob>((resolve,reject)=>out.toBlob(b=>b?resolve(b):reject(new Error('Could not create annotated image')),'image/png'))}
   await onSave(blob,{toolset:['highlight','pen','text','comment'],comments,pages:Object.keys(overlays.current).map(Number),saved_at:new Date().toISOString()})
  }catch(e){setError((e as Error).message)}finally{setBusy(false)}}

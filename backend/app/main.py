@@ -20,7 +20,7 @@ origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(CORSMiddleware, allow_origins=[x.strip() for x in origins],
                    allow_credentials=False, allow_methods=["GET", "POST"],
                    allow_headers=["Content-Type", "Authorization", "X-Device-Id", "X-Analyzer-Key"])
-TEMPLATE_DIR = Path(os.getenv("TEMPLATE_DIR", "/data/templates"))
+TEMPLATE_DIR = Path(os.getenv("TEMPLATE_DIR", "./data/templates"))
 TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
 
 @app.on_event("startup")

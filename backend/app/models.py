@@ -78,6 +78,7 @@ class ReferenceInterval(Base):
     upper_value: Mapped[float] = mapped_column()
     unit: Mapped[str] = mapped_column(String(40))
     source: Mapped[str] = mapped_column(Text)
+    created_by: Mapped[str] = mapped_column(String(120))
     status: Mapped[str] = mapped_column(String(20), default="DRAFT")
     verified_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

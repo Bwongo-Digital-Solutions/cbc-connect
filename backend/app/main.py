@@ -5,8 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from .db import Base, engine, get_db
-from .models import CBCResult, ResultReview, AuditEvent, AnalyteConfig, ReportTemplate
+from .models import CBCResult, ResultReview, AuditEvent, AnalyteConfig, ReportTemplate, UserAccount
 from .schemas import AnalyzerPayload, ResultOut, ManualSample, ReviewIn, AnalyteIn
+from .security import authenticate, create_access_token, get_current_user, hash_password, decode_access_token
+from fastapi import Request
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI(title="CBC Connect API", version="0.2.0")
@@ -16,6 +18,60 @@ app.add_middleware(CORSMiddleware, allow_origins=[x.strip() for x in origins],
                    allow_headers=["Content-Type", "X-Device-Id"])
 TEMPLATE_DIR = Path(os.getenv("TEMPLATE_DIR", "/data/templates"))
 TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
+
+@app.on_event("startup")
+def bootstrap_admin():
+    username = os.getenv("CBC_BOOTSTRAP_ADMIN")
+    password = os.getenv("CBC_BOOTSTRAP_PASSWORD")
+    if username and password:
+        db = next(get_db())
+        try:
+            if not db.query(UserAccount).filter_by(username=username).first():
+                db.add(UserAccount(username=username, password_hash=hash_password(password), role="ADMIN", active=True))
+                db.commit()
+        finally:
+            db.close()
+
+@app.middleware("http")
+async def require_api_auth(request: Request, call_next):
+    path = request.url.path
+    if not path.startswith("/api/v1/") or path == "/api/v1/auth/login":
+        return await call_next(request)
+    if path == "/api/v1/analyzer/ingest":
+        expected = os.getenv("CBC_ANALYZER_API_KEY")
+        if not expected:
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=503, content={"detail":"Analyzer API key is not configured"})
+        if request.headers.get("x-analyzer-key") != expected:
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=401, content={"detail":"Invalid analyzer API key"})
+        return await call_next(request)
+    from fastapi.responses import JSONResponse
+    header = request.headers.get("authorization", "")
+    if not header.startswith("Bearer "):
+        return JSONResponse(status_code=401, content={"detail":"Authentication required"})
+    try:
+        user = decode_access_token(header[7:])
+    except Exception:
+        return JSONResponse(status_code=401, content={"detail":"Invalid or expired token"})
+    role = user.get("role")
+    if path.endswith("/review") and role not in {"TECHNICIAN","SUPERVISOR","ADMIN"}:
+        return JSONResponse(status_code=403, content={"detail":"Insufficient role"})
+    if ("/analytes" in path or "/templates" in path) and role not in {"SUPERVISOR","ADMIN"}:
+        return JSONResponse(status_code=403, content={"detail":"Supervisor or administrator role required"})
+    request.state.user = user
+    return await call_next(request)
+
+@app.post("/api/v1/auth/login")
+def login(payload: dict, db: Session = Depends(get_db)):
+    username = str(payload.get("username", "")).strip()
+    password = str(payload.get("password", ""))
+    user = db.query(UserAccount).filter_by(username=username, active=True).first()
+    if not user or not authenticate(password, user.password_hash):
+        raise HTTPException(401, "Invalid username or password")
+    return {"access_token": create_access_token({"sub": user.username, "role": user.role}),
+            "token_type":"bearer", "role":user.role}
+
 
 def audit(db: Session, actor: str, action: str, result_id: int | None = None, details: dict | None = None):
     db.add(AuditEvent(result_id=result_id, actor=actor, action=action, details=details or {}))

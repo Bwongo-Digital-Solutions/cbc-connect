@@ -130,20 +130,33 @@ def create_sample(payload: ManualSample, request: Request, db: Session = Depends
 @app.post("/api/v1/analyzer/ingest", response_model=ResultOut, status_code=201)
 def ingest(payload: AnalyzerPayload, x_device_id: str = Header(default="unregistered-device"),
            db: Session = Depends(get_db)):
-    result = CBCResult(sample_id=payload.sample_id, patient_reference=payload.patient_reference,
-        analyzer=payload.analyzer, device_id=x_device_id, observed_at=payload.observed_at,
-        status="PENDING_REVIEW",
-        values={key: measurement.model_dump() for key, measurement in payload.values.items()})
-    db.add(result)
-    try:
-        db.flush()
+    existing = db.query(CBCResult).filter_by(sample_id=payload.sample_id, device_id=x_device_id).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="A result for this sample and device already exists")
+    result = db.query(CBCResult).filter_by(sample_id=payload.sample_id, device_id="manual-entry", analyzer="MANUAL").first()
+    values = {key: measurement.model_dump() for key, measurement in payload.values.items()}
+    if result:
+        result.patient_reference = payload.patient_reference or result.patient_reference
+        result.analyzer = payload.analyzer
+        result.device_id = x_device_id
+        result.observed_at = payload.observed_at
+        result.values = values
+        audit(db, "analyzer:" + x_device_id, "RESULT_ATTACHED_TO_REGISTERED_SAMPLE", result.id,
+              {"analyzer": payload.analyzer, "sample_id": payload.sample_id})
+    else:
+        result = CBCResult(sample_id=payload.sample_id, patient_reference=payload.patient_reference,
+            analyzer=payload.analyzer, device_id=x_device_id, observed_at=payload.observed_at,
+            status="PENDING_REVIEW", values=values)
+        db.add(result)
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(status_code=409, detail="A result for this sample and device already exists")
         audit(db, "analyzer:" + x_device_id, "RESULT_RECEIVED", result.id,
               {"analyzer": payload.analyzer, "sample_id": payload.sample_id})
-        db.commit()
-        db.refresh(result)
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="A result for this sample and device already exists")
+    db.commit()
+    db.refresh(result)
     return result
 
 @app.post("/api/v1/results/{result_id}/review")

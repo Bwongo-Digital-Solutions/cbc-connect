@@ -1,173 +1,146 @@
-# CBC Connect — Laboratory Technician and Clinician User Manual
+# CBC Connect — Simple User Guide for Laboratory Staff and Clinicians
 
-**Audience:** laboratory technicians, laboratory supervisors, clinicians who are authorized to view CBC results, and clinic administrators.  
-**Product status:** development build. This manual describes the current standalone CBC Connect interface; it is not an analyzer installation guide or a clinical procedure.
+**Who this guide is for:** laboratory technicians, clinicians, laboratory supervisors and clinic administrators.  
+**Purpose:** show staff how to find a CBC result, open its source report, add notes and record a review.
 
-## 1. What CBC Connect does
+> **Important:** CBC Connect is still a development system. Do not use its demo records for patient care. A status of **REVIEWED** means that a review was saved in the software; it does not mean that a result has been formally authorized or released to a patient.
 
-CBC Connect is a standalone workspace for registering samples, receiving normalized CBC analyzer data, reviewing measurements, keeping an audit history, and preparing a report from reviewed results.
+## 1. Sign in
 
-The current build is designed around a human review step:
-
-- Newly registered or received results enter **PENDING REVIEW**.
-- The original received analyzer measurements are retained.
-- A reviewer can record a separate set of reviewed values and comments.
-- Submitting a review changes the application status to **REVIEWED**.
-- A reviewed status is an application workflow state. It does **not**, by itself, mean that a result has been clinically authorized, released to a patient, or transmitted to an EMR.
-
-The current HumaCount 30TS integration is not yet a validated device connection. The application accepts a normalized development payload; it does not currently parse a confirmed native HumaCount export or communicate with the analyzer directly.
-
-## 2. User roles and access
-
-The current application defines these account roles:
-
-| Role | Current access |
-| --- | --- |
-| TECHNICIAN | View the workspace, register samples, open results, and submit result reviews. |
-| SUPERVISOR | Technician access, plus manage analyte display configuration and report templates. |
-| ADMIN | Supervisor access, plus create user accounts. |
-
-There is currently no separate **CLINICIAN** role or clinician-specific approval/sign-off workflow. A clinician who needs access must be assigned an existing role by the clinic administrator according to local policy. Do not give a user elevated access simply to work around a missing permission.
-
-All users should use their own account. Review identity is taken from the signed-in account, not from a name typed into the review form.
-
-## 3. Sign in
-
-1. Open the CBC Connect address supplied by your administrator (the development default is `http://localhost:5174` on the host running the application).
-2. Enter your assigned username and password.
+1. Open the CBC Connect web address given to you by your system administrator.
+2. Enter your own username and password.
 3. Select **Sign in**.
-4. When finished, select **Sign out**. Do not share accounts or leave a workstation signed in unattended.
+4. When you finish, select **Sign out**.
 
-If sign-in fails, check the username and password with the administrator. Accounts must be active and the API must be available. Do not repeatedly guess passwords or share credentials in support messages.
+Do not share your password or use another staff member's account.
 
-## 4. Understand the dashboard and results queue
+## 2. Find a CBC result
 
-After signing in, the **Results queue** is the main workspace.
+After signing in, you will see the **Results queue**.
 
-The summary cards show:
-- **Total results:** all registered and received records.
-- **Pending review:** records waiting for a review to be recorded.
-- **Reviewed:** records with a saved review.
+- **Total results** shows all results and registered samples.
+- **Pending review** shows results that still need staff review.
+- **Reviewed** shows results for which a review has been saved.
 
-Use the search box to search by sample ID, patient reference, or analyzer name. Use the status filter to show all results, pending review, or reviewed results. Select **Refresh** to reload the queue.
+Use the search box to find a sample by its laboratory number, patient reference or analyzer. Use the status list to show only pending or reviewed results. Select **Refresh** to check for new results.
 
-Open a record to view its details. Check the sample ID and patient reference carefully before working on a result. If the identifiers do not match the laboratory request or specimen, stop and follow the clinic's discrepancy procedure; do not guess which patient the sample belongs to.
+Select **Open** beside a result to see its details.
 
-## 5. Register a sample manually
+## 3. Check that you have the correct sample
 
-Use **Register sample** when a sample needs a record before analyzer data arrives.
+Before reviewing anything:
 
-1. Open the **Register sample** tab.
-2. Enter the laboratory accession number or barcode in **Sample / accession ID**.
-3. Enter the patient reference if available and permitted by clinic policy.
-4. Select **Register sample**.
-5. Confirm that the application reports successful registration and that the record appears in the results queue as **PENDING REVIEW**.
+1. Compare the sample/accession number with the laboratory request and the specimen label.
+2. Check the patient reference, if one is recorded.
+3. Check the analyzer name and the time the result arrived.
+4. If anything does not match, stop and ask the laboratory supervisor to help. Do not guess or change the patient or sample identity.
 
-Use the same accession/barcode that will accompany the analyzer result. The application rejects a duplicate manual sample ID. If a sample is already registered, open the existing record rather than creating another identifier.
+## 4. Open an uploaded CBC report
 
-A manually registered sample initially has no analyzer measurements. When matching analyzer data is ingested for that sample, the incoming measurements can be attached to that registered record.
+The result detail screen has a section called **Uploaded CBC report / source document**.
 
-## 6. Review a received CBC result
+To add a report:
+1. Select **Choose source report**.
+2. Select the PDF, PNG or JPG file supplied by the laboratory/analyzer workflow.
+3. Add a short note if needed.
+4. Select **Upload source document**.
 
-Only review results when you are authorized and have followed the laboratory's approved SOP, including specimen identity checks and any required analyzer/QC checks.
+To view a report:
+1. Find the uploaded file in the document list.
+2. Select **View document**.
+3. The report opens in the document viewer. Use the viewer controls to zoom or move between PDF pages.
+4. Close the viewer to return to the CBC result.
 
-1. In **Results queue**, find the correct sample and select **Open**.
-2. Verify the sample ID and patient reference against the laboratory request and specimen identifiers.
-3. Check the analyzer and device information and the received timestamp.
-4. Read the **Analyzer measurements** table. These are the original values received by CBC Connect.
-5. Compare the values with the analyzer output and the applicable laboratory procedure. Investigate missing, unexpected, inconsistent, or questionable data before proceeding.
-6. In **Review and document values**, check each analyte and its value, unit, and flag. Record only changes that are supported by the source record and authorized procedure. Add a clear comment explaining any correction or relevant issue.
-7. Select the review/submit button and confirm that the record now shows **REVIEWED**.
+The uploaded file is kept as the original source document. CBC Connect does not silently change or replace it.
 
-The reviewed analyte set must contain the same analyte codes as the received set. If a result is incomplete or cannot be reconciled, do not submit a review merely to clear the queue. Escalate it to the supervisor and use the local exception procedure.
+### Add or change your notes
 
-### Important: original versus reviewed values
+Each uploaded document has a **Clinician / reviewer notes** box.
 
-The original analyzer values are retained separately and are not overwritten by a review. The review stores the values submitted by the reviewer and the reviewer comments. Always distinguish the original analyzer output from any reviewed or corrected value when investigating a discrepancy.
+1. Type your note in the box.
+2. Select **Save notes**.
+3. The note is saved against that document and the action is recorded in the result history.
 
-The current application does not provide a second-person clinical authorization step, automatic delta checks, validated reference-interval flagging, or a clinician release workflow. Follow the laboratory's existing authorization and result-release process outside this development build.
+Use notes to explain a document discrepancy or record the review context. Do not use notes to replace the original report or to change the patient's identity.
 
-## 7. View audit history
+## 5. Review the CBC measurements
 
-Open a result to inspect its recorded review information and audit events (where displayed). The audit history is intended to help staff understand events such as sample registration, analyzer result receipt, attachment to a manually registered sample, and review submission.
+The **Analyzer measurements** table shows the values originally received by CBC Connect.
 
-If an action or value appears incorrect, do not try to conceal or erase it. Notify the supervisor and follow the clinic's correction and incident-reporting process.
+1. Open the source report and compare it with the measurements shown on screen.
+2. Follow your laboratory's approved procedures and quality-control checks.
+3. If a value or sample detail looks wrong, stop and ask the supervisor. Do not make an unsupported correction.
+4. If you are authorized to record the review, use the **Review and document values** section.
+5. Enter any permitted correction in the review form and explain it in **Review comments**.
+6. Select **Record review** only after the required checks are complete.
 
-## 8. Print or generate a report
+The original analyzer measurements remain unchanged. The software stores reviewed values separately so staff can see what was received and what was recorded during review.
 
-A report can be generated only for a result whose status is **REVIEWED**.
+A result marked **REVIEWED** is not automatically approved for patient release. Continue to follow the clinic's own authorization and communication process.
 
-### Print a reviewed result
+## 6. Print a reviewed report
 
-1. Open the reviewed result.
-2. Select **Print report / PDF**.
-3. Use the browser print dialog to print or save the page as PDF, if permitted by clinic policy.
-4. Verify patient/sample identifiers, values, units, reviewer and comments before using the document.
+For a result that has a saved review:
+1. Open the result.
+2. Select **Print report / PDF** or choose a DOCX template and select **Generate PDF from template**.
+3. Open the generated report.
+4. Check the sample details, values, units and comments.
 
-### Generate a PDF from a DOCX template
+Only use a report for its intended purpose after the responsible staff have completed the clinic's approval process. A PDF uploaded as a source document is for viewing; it is not a report template.
 
-1. A supervisor or administrator should prepare and upload the clinic-approved DOCX template under **Report templates**.
-2. Open a reviewed result.
-3. Choose the DOCX template in the report-template selector.
-4. Select **Generate PDF from template**.
-5. Open the generated PDF and verify its contents and layout before any authorized use.
+## 7. User roles
 
-PDF uploads in the template area are retained as reference documents; they are not mergeable report templates. Only DOCX templates can be used for template-based PDF generation.
+| Role | What the role can do |
+| --- | --- |
+| TECHNICIAN | Register samples, view results, attach source documents, add document notes and record a result review. |
+| CLINICIAN | View results, open and attach source documents, add notes and record a result review. |
+| SUPERVISOR | Technician functions, plus manage analyte display settings and report templates. |
+| ADMIN | Supervisor functions, plus create staff accounts. |
 
-## 9. Supervisor tasks
+Your administrator assigns your role. If a button or section is not available, ask the administrator to check your access. Do not share accounts to get around a permission.
 
-The **Analyte setup** and **Report templates** tabs are restricted to supervisors and administrators.
+## 8. Supervisor: report templates and analyte display
 
-### Analyte setup
+Supervisors and administrators can manage the clinic's report templates and analyte display settings.
 
-An authorized supervisor can configure an analyte code, display name, unit, decimal precision, and enabled state. These settings affect local display configuration; they do not convert or validate incoming measurements and do not establish clinical reference intervals.
-
-Do not invent analyte codes, units, precision, or reference limits. Confirm local conventions with the laboratory lead and the analyzer documentation.
-
-### Report templates
-
-If the clinic has no DOCX template:
-
+If the clinic does not have a DOCX report template:
 1. Open **Report templates**.
 2. Select **Generate sample template**.
-3. Download the generated DOCX.
-4. Customize it in an approved word processor with the clinic identity and required report fields.
-5. Test it using synthetic/demo records.
-6. Have the responsible laboratory authority approve it under local procedures.
-7. Upload the approved DOCX and select it when generating reports.
+3. Download the DOCX file.
+4. Customize it using the clinic's approved wording and layout.
+5. Test it with synthetic demo records.
+6. Obtain the required local approval, then upload the clinic's approved template.
 
-The starter document is only a layout aid; it is not a clinically approved report. See [Report template guide](report-template-guide.md) for supported placeholders and table formatting.
+Analyte display settings change labels and display formatting only. They do not validate results, change units, or define clinical reference intervals.
 
-## 10. Synthetic demonstration records
+## 9. Demo results
 
-Development installations can be populated with fictional records using the repository's demo seeding script. These records are explicitly labelled as simulated training data and should be used only in an isolated demonstration or test environment.
+The system includes fictional CBC records for training and software demonstration. The first demo record can also generate a sample PDF source report from its fictional values. Open the record named **SYNTH-CBC-0001**, select **Create demo report PDF**, then select **View document**.
 
-Never confuse a sample beginning with `SYNTH-CBC-` or a patient reference beginning with `SYNTH-PATIENT-` with a real patient. Do not copy demo values into a patient record or use them for training clinical decisions. See [Synthetic demo data](synthetic-demo-data.md).
+The demo report is clearly marked **SYNTHETIC TRAINING DATA ONLY — NOT A PATIENT REPORT**. It is not a real analyzer export, not a real patient result, and not suitable for clinical decisions. Do not upload demo documents into a real patient record or use demo values for patient care.
 
-## 11. Common problems
+## 10. If something goes wrong
 
 | Problem | What to do |
 | --- | --- |
-| Cannot sign in | Confirm the account is active, check credentials, and ask the administrator to check API availability. |
-| Results queue is empty | Select **Refresh**; check the search and status filters; confirm that a sample was registered or that the analyzer integration/ingestion service is operating. |
-| Duplicate sample warning | Search for and open the existing sample. Do not invent a new accession number to bypass the warning. |
-| Result is still pending | A result remains pending until an authorized reviewer submits a review. Do not submit a review without completing the required checks. |
-| Cannot open Analyte setup or Report templates | These functions require SUPERVISOR or ADMIN access. Ask the administrator to confirm your role. |
-| Cannot generate a template PDF | Confirm the result is REVIEWED, a DOCX template is uploaded and selected, and the template file is available. A PDF reference upload cannot be merged. |
-| Analyzer result does not appear | The current build does not yet include a validated native HumaCount parser/receiver. Confirm the device integration status with the technical administrator. |
-| Values or identifiers appear wrong | Stop the workflow, preserve the original analyzer output, and escalate to the supervisor. Do not guess or silently change patient/sample identifiers. |
+| You cannot sign in | Check that you are using your own account. Ask the administrator to check that it is active. |
+| You cannot find a result | Select **Refresh**, clear the search box and set the status filter to **All statuses**. |
+| The sample or patient details do not match | Stop. Ask the laboratory supervisor to resolve the mismatch. |
+| A PDF or image will not upload | Check that it is a PDF, PNG or JPG and smaller than 15 MB. |
+| A document will not open | Refresh the result and try again. If it still fails, ask the administrator to check the stored file. |
+| You cannot save notes or a review | Check your account role and ask the administrator if access is correct. |
+| Analyzer results are not arriving | Contact the system administrator. The native HumaCount connection is not yet validated in this development build. |
 
-## 12. Patient privacy and safe use
+## 11. Protect patient information
 
-- Use only the minimum patient information required by the clinic's approved workflow.
-- Do not use real patient identifiers in screenshots, demo fixtures, issue reports, or public support requests.
-- Do not share passwords, API keys, access tokens, or database backups.
-- Use the application only on an approved, access-controlled network and follow clinic retention, consent, confidentiality, and access policies.
-- Do not use this development build as the sole system for diagnosis, treatment decisions, result authorization, or patient result release.
-- Before any live clinical use, the deploying organization must complete security assessment, operational acceptance, device/interface validation, clinical workflow validation, staff training, backup/restore testing, and formal approval.
+- Use only the patient information needed for your approved work.
+- Do not use real patient details in demo records, screenshots or public support messages.
+- Do not share passwords, access tokens or API keys.
+- Use CBC Connect only on a network and workstation approved by your organization.
+- Follow your facility's privacy, retention and access policies.
 
-## 13. Quick workflow summary
+## Quick reminder
 
-**Register sample → confirm identity → receive analyzer data → compare original measurements with source/QC and SOP → document review → supervisor/authorized clinical release under local policy → generate/verify report.**
+**Find the result → check the sample identity → open the source report → compare the measurements → add notes if needed → record a review only when authorized → follow the clinic's separate result-approval process.**
 
-CBC Connect's **REVIEWED** status records an application review only. Follow your facility's approved process for final authorization and communication of results.
+CBC Connect records work in the application. It does not replace your laboratory's approved procedures or professional responsibilities.

@@ -874,11 +874,13 @@ def generate_report(result_id: int, template_id: int, db: Session = Depends(get_
             footer_run.font.color.rgb = RGBColor(83, 101, 121)
 
         # Patient identity is inserted automatically, independently of template placeholders.
-        patient_table = branded_doc.add_table(rows=3, cols=2)
+        patient_table = branded_doc.add_table(rows=5, cols=2)
         patient_table.style = "Table Grid"
         patient_rows = [("Patient name", result.patient_name or "Not recorded"),
                         ("Age", result.patient_age or "Not recorded"),
-                        ("Address", result.patient_address or "Not recorded")]
+                        ("Address", result.patient_address or "Not recorded"),
+                        ("Patient reference", result.patient_reference or "Not recorded"),
+                        ("Sample / accession ID", result.sample_id)]
         for row, (label, value) in zip(patient_table.rows, patient_rows):
             row.cells[0].text = label
             row.cells[1].text = value

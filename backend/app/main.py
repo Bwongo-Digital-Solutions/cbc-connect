@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from .db import Base, engine, get_db
 from .models import CBCResult, ResultReview, AuditEvent, AnalyteConfig, ReportTemplate, UserAccount, ReferenceInterval
 from .schemas import AnalyzerPayload, ResultOut, ManualSample, ReviewIn, AnalyteIn
-from .security import authenticate, create_access_token, get_current_user, hash_password, decode_access_token
+from .security import authenticate, create_access_token, hash_password, decode_access_token
 from fastapi import Request
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask

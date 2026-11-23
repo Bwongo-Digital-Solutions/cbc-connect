@@ -19,7 +19,7 @@ app = FastAPI(title="CBC Connect API", version="0.2.0")
 origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(CORSMiddleware, allow_origins=[x.strip() for x in origins],
                    allow_credentials=False, allow_methods=["GET", "POST"],
-                   allow_headers=["Content-Type", "X-Device-Id"])
+                   allow_headers=["Content-Type", "Authorization", "X-Device-Id", "X-Analyzer-Key"])
 TEMPLATE_DIR = Path(os.getenv("TEMPLATE_DIR", "/data/templates"))
 TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -39,7 +39,7 @@ def bootstrap_admin():
 @app.middleware("http")
 async def require_api_auth(request: Request, call_next):
     path = request.url.path
-    if not path.startswith("/api/v1/") or path == "/api/v1/auth/login":
+    if request.method == "OPTIONS" or not path.startswith("/api/v1/") or path == "/api/v1/auth/login":
         return await call_next(request)
     if path == "/api/v1/analyzer/ingest":
         expected = os.getenv("CBC_ANALYZER_API_KEY")

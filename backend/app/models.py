@@ -55,3 +55,12 @@ class ReportTemplate(Base):
     storage_path: Mapped[str] = mapped_column(String(500))
     uploaded_by: Mapped[str] = mapped_column(String(120))
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class UserAccount(Base):
+    __tablename__ = "user_accounts"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(30), default="TECHNICIAN")
+    active: Mapped[bool] = mapped_column(default=True)

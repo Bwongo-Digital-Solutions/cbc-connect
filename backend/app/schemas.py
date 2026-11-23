@@ -19,7 +19,7 @@ class ManualSample(BaseModel):
     collected_at: datetime | None = None
 
 class ReviewIn(BaseModel):
-    reviewer: str = Field(min_length=2, max_length=120)
+    reviewer: str | None = None
     comments: str | None = None
     reviewed_values: dict[str, Measurement]
 

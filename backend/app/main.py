@@ -14,6 +14,8 @@ from fastapi import Request
 from fastapi.responses import FileResponse
 from starlette.background import BackgroundTask
 from docxtpl import DocxTemplate
+from docx import Document
+from docx.shared import Inches
 import subprocess, tempfile, shutil
 
 app = FastAPI(title="CBC Connect API", version="0.2.0")
@@ -232,6 +234,66 @@ def create_user(payload: dict, request: Request, db: Session = Depends(get_db)):
 def list_templates(db: Session = Depends(get_db)):
     rows = db.query(ReportTemplate).order_by(ReportTemplate.uploaded_at.desc()).all()
     return [{"id":r.id,"name":r.name,"filename":r.filename,"uploaded_by":r.uploaded_by,"uploaded_at":r.uploaded_at} for r in rows]
+
+@app.post("/api/v1/templates/generate-sample", status_code=201)
+def generate_sample_template(request: Request, db: Session = Depends(get_db)):
+    """Create a starter DOCX template only when the clinic has no DOCX template."""
+    existing = db.query(ReportTemplate).filter(ReportTemplate.filename.ilike("%.docx")).order_by(
+        ReportTemplate.uploaded_at.desc()).first()
+    if existing and Path(existing.storage_path).is_file():
+        return {"created": False, "message": "A DOCX report template already exists.",
+                "template": {"id": existing.id, "name": existing.name,
+                             "filename": existing.filename, "uploaded_at": existing.uploaded_at}}
+
+    doc = Document()
+    section = doc.sections[0]
+    section.top_margin = section.bottom_margin =  Inches(0.65)
+    doc.add_heading("CBC Connect", 0)
+    doc.add_heading("Complete Blood Count Report", level=1)
+    doc.add_paragraph("Clinic: {{ clinic_name }}")
+    info = doc.add_table(rows=0, cols=2)
+    info.style = "Table Grid"
+    for label, placeholder in [
+        ("Sample / accession ID", "{{ sample_id }}"),
+        ("Patient reference", "{{ patient_reference }}"),
+        ("Analyzer", "{{ analyzer }}"),
+        ("Received", "{{ received_at }}"),
+        ("Reviewed by", "{{ reviewer }}"),
+        ("Reviewed at", "{{ reviewed_at }}"),
+    ]:
+        cells = info.add_row().cells
+        cells[0].text, cells[1].text = label, placeholder
+    doc.add_paragraph("")
+    doc.add_heading("CBC Measurements", level=2)
+    table = doc.add_table(rows=1, cols=4)
+    table.style = "Table Grid"
+    for cell, label in zip(table.rows[0].cells, ["Analyte", "Result", "Unit", "Flag"]):
+        cell.text = label
+    start = table.add_row()
+    start.cells[0].text = "{%tr for item in results %}"
+    data = table.add_row()
+    for cell, value in zip(data.cells, ["{{ item.code }}", "{{ item.value }}", "{{ item.unit }}", "{{ item.flag }}"]):
+        cell.text = value
+    end = table.add_row()
+    end.cells[0].text = "{%tr endfor %}"
+    doc.add_paragraph("Review comments: {{ comments }}")
+    doc.add_paragraph("This report is generated from reviewed values. Follow the clinic's approved authorization and release procedure.")
+    filename = "cbc-connect-sample-report.docx"
+    target = TEMPLATE_DIR / f"{os.urandom(12).hex()}.docx"
+    doc.save(target)
+    actor = request.state.user.get("sub", "staff")
+    item = ReportTemplate(name="CBC Connect Sample Report", filename=filename,
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        storage_path=str(target), uploaded_by=actor)
+    db.add(item)
+    audit(db, actor, "SAMPLE_REPORT_TEMPLATE_GENERATED",
+          details={"name": item.name, "filename": filename})
+    db.commit()
+    db.refresh(item)
+    return {"created": True, "message": "Starter DOCX template generated. Download and customize it for your clinic.",
+            "template": {"id": item.id, "name": item.name, "filename": item.filename,
+                         "uploaded_at": item.uploaded_at}}
+
 
 @app.post("/api/v1/templates", status_code=201)
 async def upload_template(request: Request, name: str = Form(...), uploaded_by: str = Form(...),

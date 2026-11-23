@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cbc_connect}
+      POSTGRES_USER: ${POSTGRES_USER:-cbc_connect}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-local-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cbc_connect} -d ${POSTGRES_DB:-cbc_connect}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://cbc_connect:change-this-local-password@db:5432/cbc_connect}
+      CORS_ORIGINS: http://localhost:5173
+    ports: ["8000:8000"]
+    depends_on:
+      db: {condition: service_healthy}
+    restart: unless-stopped
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    ports: ["5173:5173"]
+    depends_on: [backend]
+    restart: unless-stopped
+volumes:
+  postgres_data:

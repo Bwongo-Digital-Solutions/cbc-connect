@@ -254,6 +254,56 @@ def update_result_document_notes(result_id: int, document_id: int, payload: dict
     return {"id": item.id, "notes": item.notes}
 
 
+
+@app.post("/api/v1/results/{result_id}/demo-document", status_code=201)
+def create_synthetic_demo_document(result_id: int, request: Request, db: Session = Depends(get_db)):
+    result = db.get(CBCResult, result_id)
+    if not result:
+        raise HTTPException(404, "Result not found")
+    if result.sample_id != "SYNTH-CBC-0001" or "SIMULATED" not in result.analyzer.upper():
+        raise HTTPException(403, "This feature is available only for the labelled synthetic demo result")
+    existing = db.query(ResultDocument).filter_by(result_id=result_id, filename="SYNTH-CBC-0001-demo-report.pdf").first()
+    if existing and Path(existing.storage_path).is_file():
+        return {"created": False, "document_id": existing.id, "message": "The synthetic demo report already exists."}
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    target = DOCUMENT_DIR / (os.urandom(16).hex() + ".pdf")
+    styles = getSampleStyleSheet()
+    story = [
+        Paragraph("CBC Connect — Sample CBC Report", styles["Title"]),
+        Paragraph("SYNTHETIC TRAINING DATA ONLY — NOT A PATIENT REPORT", styles["Heading2"]),
+        Spacer(1, 10),
+        Paragraph("Fictional example for demonstrating the source-document viewer and review workflow. It is not an authentic analyzer export and contains no patient identifiers or clinical reference intervals.", styles["BodyText"]),
+        Spacer(1, 12),
+        Paragraph("<b>Sample ID:</b> SYNTH-CBC-0001 &nbsp;&nbsp; <b>Analyzer:</b> HumaCount 30TS (SIMULATED)", styles["BodyText"]),
+        Spacer(1, 12)
+    ]
+    rows = [["Parameter", "Illustrative result", "Unit", "Flag"]]
+    for code, measurement in result.values.items():
+        rows.append([code, str(measurement.get("value", "")), str(measurement.get("unit") or ""), str(measurement.get("flag") or "Not supplied")])
+    table = Table(rows, repeatRows=1, colWidths=[120, 110, 100, 100])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#e8f3ff")),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.HexColor("#cbd5e1")),
+        ("PADDING", (0,0), (-1,-1), 7),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE")
+    ]))
+    story.append(table)
+    story.extend([Spacer(1, 16), Paragraph("Training document only. Do not use these values for patient care, diagnosis, treatment, or clinical decision-making.", styles["Italic"])])
+    SimpleDocTemplate(str(target), pagesize=A4).build(story)
+    actor = request.state.user.get("sub", "staff")
+    item = ResultDocument(result_id=result_id, filename="SYNTH-CBC-0001-demo-report.pdf",
+        content_type="application/pdf", storage_path=str(target), uploaded_by=actor,
+        notes="Synthetic training document; not a real patient report.")
+    db.add(item)
+    audit(db, actor, "SYNTHETIC_DEMO_DOCUMENT_CREATED", result_id, {"filename": item.filename})
+    db.commit()
+    db.refresh(item)
+    return {"created": True, "document_id": item.id, "filename": item.filename}
+
+
 @app.get("/api/v1/results/{result_id}/audit")
 def result_audit(result_id: int, db: Session = Depends(get_db)):
     if not db.get(CBCResult, result_id):
@@ -286,7 +336,7 @@ def create_user(payload: dict, request: Request, db: Session = Depends(get_db)):
     username = str(payload.get("username", "")).strip()
     password = str(payload.get("password", ""))
     role = str(payload.get("role", "TECHNICIAN")).upper()
-    if not username or role not in {"TECHNICIAN","SUPERVISOR","ADMIN"}:
+    if not username or role not in {"TECHNICIAN","SUPERVISOR","ADMIN","CLINICIAN"}:
         raise HTTPException(422, "Provide a username and a valid role")
     if len(password) < 12:
         raise HTTPException(422, "Password must be at least 12 characters")

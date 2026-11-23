@@ -37,3 +37,15 @@ The action is idempotent: if a DOCX template already exists, the API returns the
 
 
 Every generated DOCX-template report is also given the saved clinic logo, clinic name, theme colour, address/header and footer automatically. CBC Connect adds a patient identity table containing patient name, age and address even when those fields are not explicitly placed in the uploaded template. The footer always includes **Powered by ClinicHIS** and both configured standard contact numbers (0775-872-454 and 0751-319-201). The same saved clinic profile is used by the branded PDF generator and the direct **Print branded final PDF** action.
+
+
+### Clinic logo watermark and background
+
+In **Clinic document branding**, choose how the saved clinic logo appears on final PDFs:
+
+- **Header only** — normal logo in the report header.
+- **Faint centered watermark** — logo centered behind report content.
+- **Full-page background image** — logo image scaled to the page background.
+- **Header and watermark** — logo in both positions.
+
+For watermark/background modes, set opacity from 3% to 30%. The setting is saved with the clinic profile and applied automatically to newly generated branded PDFs and PDFs produced from DOCX templates. Use a low opacity so patient identifiers and CBC values remain legible. Original uploaded templates and source documents are not modified.

@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from .db import Base, engine, get_db
-from .models import CBCResult, ResultReview, AuditEvent, AnalyteConfig, ReportTemplate, UserAccount, ReferenceInterval
+from .models import CBCResult, ResultReview, AuditEvent, AnalyteConfig, ReportTemplate, UserAccount, ReferenceInterval, ResultDocument
 from .schemas import AnalyzerPayload, ResultOut, ManualSample, ReviewIn, AnalyteIn
 from .security import authenticate, create_access_token, hash_password, decode_access_token
 from fastapi import Request
@@ -21,10 +21,12 @@ import subprocess, tempfile, shutil
 app = FastAPI(title="CBC Connect API", version="0.2.0")
 origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(CORSMiddleware, allow_origins=[x.strip() for x in origins],
-                   allow_credentials=False, allow_methods=["GET", "POST"],
+                   allow_credentials=False, allow_methods=["GET", "POST", "PATCH"],
                    allow_headers=["Content-Type", "Authorization", "X-Device-Id", "X-Analyzer-Key"])
 TEMPLATE_DIR = Path(os.getenv("TEMPLATE_DIR", "./data/templates"))
 TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
+DOCUMENT_DIR = Path(os.getenv('DOCUMENT_DIR', '/data/documents'))
+DOCUMENT_DIR.mkdir(parents=True, exist_ok=True)
 
 @app.on_event("startup")
 def bootstrap_admin():
@@ -62,7 +64,7 @@ async def require_api_auth(request: Request, call_next):
     except Exception:
         return JSONResponse(status_code=401, content={"detail":"Invalid or expired token"})
     role = user.get("role")
-    if path.endswith("/review") and role not in {"TECHNICIAN","SUPERVISOR","ADMIN"}:
+    if path.endswith("/review") and role not in {"TECHNICIAN","SUPERVISOR","ADMIN","CLINICIAN"}:
         return JSONResponse(status_code=403, content={"detail":"Insufficient role"})
     if (request.method != "GET" and ("/analytes" in path or "/templates" in path) and role not in {"SUPERVISOR","ADMIN"}):
         return JSONResponse(status_code=403, content={"detail":"Supervisor or administrator role required"})
@@ -111,7 +113,12 @@ def result_detail(result_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Result not found")
     review = db.query(ResultReview).filter_by(result_id=result_id).first()
     events = db.query(AuditEvent).filter_by(result_id=result_id).order_by(AuditEvent.created_at.desc()).all()
-    return {"result": ResultOut.model_validate(result), "review": review, "audit": events}
+    documents = db.query(ResultDocument).filter_by(result_id=result_id).order_by(ResultDocument.uploaded_at.desc()).all()
+    document_rows = [{"id": d.id, "filename": d.filename, "content_type": d.content_type,
+                      "uploaded_by": d.uploaded_by, "notes": d.notes, "uploaded_at": d.uploaded_at}
+                     for d in documents]
+    return {"result": ResultOut.model_validate(result), "review": review, "audit": events,
+            "documents": document_rows}
 
 @app.post("/api/v1/samples", response_model=ResultOut, status_code=201)
 def create_sample(payload: ManualSample, request: Request, db: Session = Depends(get_db)):
@@ -185,6 +192,67 @@ def review_result(result_id: int, payload: ReviewIn, request: Request, db: Sessi
           {"comments": payload.comments, "corrections_made": corrected != result.values})
     db.commit()
     return {"message": "Review recorded", "status": result.status, "reviewed_at": review.reviewed_at}
+
+
+@app.post("/api/v1/results/{result_id}/documents", status_code=201)
+async def upload_result_document(result_id: int, request: Request,
+                                 file: UploadFile = File(...), notes: str = Form(""),
+                                 db: Session = Depends(get_db)):
+    result = db.get(CBCResult, result_id)
+    if not result:
+        raise HTTPException(404, "Result not found")
+    suffix = Path(file.filename or "").suffix.lower()
+    allowed = {".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+    if suffix not in allowed:
+        raise HTTPException(415, "Upload a PDF, PNG or JPG source report")
+    content = await file.read()
+    if not content or len(content) > 15 * 1024 * 1024:
+        raise HTTPException(413, "Document must be between 1 byte and 15 MB")
+    valid = ((suffix == ".pdf" and content.startswith(b"%PDF-")) or
+             (suffix == ".png" and content[:8] == bytes([137,80,78,71,13,10,26,10])) or
+             (suffix in {".jpg", ".jpeg"} and content[:3] == bytes([255,216,255])))
+    if not valid:
+        raise HTTPException(415, "The file content does not match its PDF or image extension")
+    stored_name = os.urandom(16).hex() + suffix
+    target = DOCUMENT_DIR / stored_name
+    target.write_bytes(content)
+    actor = request.state.user.get("sub", "staff")
+    item = ResultDocument(result_id=result_id, filename=Path(file.filename or stored_name).name,
+        content_type=allowed[suffix], storage_path=str(target), uploaded_by=actor, notes=notes.strip() or None)
+    db.add(item)
+    audit(db, actor, "RESULT_SOURCE_DOCUMENT_UPLOADED", result_id,
+          {"filename": item.filename, "content_type": item.content_type})
+    db.commit()
+    db.refresh(item)
+    return {"id": item.id, "filename": item.filename, "content_type": item.content_type,
+            "uploaded_by": item.uploaded_by, "notes": item.notes, "uploaded_at": item.uploaded_at}
+
+
+@app.get("/api/v1/results/{result_id}/documents/{document_id}")
+def view_result_document(result_id: int, document_id: int, db: Session = Depends(get_db)):
+    item = db.query(ResultDocument).filter_by(id=document_id, result_id=result_id).first()
+    if not item or not Path(item.storage_path).is_file():
+        raise HTTPException(404, "Source document not found")
+    return FileResponse(item.storage_path, media_type=item.content_type,
+                        filename=item.filename, content_disposition_type="inline",
+                        headers={"X-Content-Type-Options": "nosniff"})
+
+
+@app.patch("/api/v1/results/{result_id}/documents/{document_id}/notes")
+def update_result_document_notes(result_id: int, document_id: int, payload: dict,
+                                 request: Request, db: Session = Depends(get_db)):
+    item = db.query(ResultDocument).filter_by(id=document_id, result_id=result_id).first()
+    if not item:
+        raise HTTPException(404, "Source document not found")
+    notes = str(payload.get("notes", "")).strip()
+    if len(notes) > 5000:
+        raise HTTPException(422, "Notes must be 5,000 characters or fewer")
+    item.notes = notes or None
+    actor = request.state.user.get("sub", "staff")
+    audit(db, actor, "RESULT_DOCUMENT_NOTES_UPDATED", result_id, {"document_id": document_id})
+    db.commit()
+    return {"id": item.id, "notes": item.notes}
+
 
 @app.get("/api/v1/results/{result_id}/audit")
 def result_audit(result_id: int, db: Session = Depends(get_db)):

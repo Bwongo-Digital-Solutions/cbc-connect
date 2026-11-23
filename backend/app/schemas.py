@@ -16,6 +16,9 @@ class AnalyzerPayload(BaseModel):
 class ManualSample(BaseModel):
     sample_id: str = Field(min_length=1, max_length=120)
     patient_reference: str | None = None
+    patient_name: str | None = Field(default=None, max_length=200)
+    patient_age: str | None = Field(default=None, max_length=80)
+    patient_address: str | None = Field(default=None, max_length=1000)
     collected_at: datetime | None = None
 
 class ReviewIn(BaseModel):

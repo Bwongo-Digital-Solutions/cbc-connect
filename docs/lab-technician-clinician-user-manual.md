@@ -41,7 +41,7 @@ The result detail screen has a section called **Uploaded CBC report / source doc
 
 To add a report:
 1. Select **Choose source report**.
-2. Select the PDF, PNG or JPG file supplied by the laboratory/analyzer workflow.
+2. Select the PDF, DOC, DOCX, PNG or JPG file supplied by the laboratory/analyzer workflow.
 3. Add a short note if needed.
 4. Select **Upload source document**.
 
@@ -55,13 +55,13 @@ The uploaded file is kept as the original source document. CBC Connect does not 
 
 ### Annotate an uploaded report
 
-1. Select **Annotate** beside an original PDF, PNG or JPG source document.
+1. Select **Annotate** beside an original PDF, DOC, DOCX, PNG or JPG source document. Word files are converted to a PDF preview for annotation; the uploaded Word original is retained.
 2. Choose **Highlight**, **Pen**, **Text** or **Comment** from the toolbar. For a PDF, use the page controls to move through its pages.
 3. Use the pointer on the report to place the annotation. Text and comment tools ask you to enter the wording.
 4. Select **Save annotated copy**. CBC Connect stores a new annotated PDF or image and records who saved it and when.
 5. The annotated copy appears as a separate document. The original source upload remains unchanged and can still be opened.
 
-The editor adds visual annotations; it does not rewrite existing PDF text, change printed CBC values, or alter the analyzer measurements. Check annotations carefully before using or sharing the copy. An annotation is not a clinical correction or authorization.
+For PDF and Word files, the annotated copy is exported as PDF. For images, the annotated copy is saved as PNG. Use **Export PDF** to download a printable PDF, or **Print** to send the document to the workstation printer. DOC and DOCX files are converted to PDF for preview, annotation and printing; downloading the original Word upload remains separate. The editor adds visual annotations; it does not rewrite existing document text, change printed CBC values, or alter analyzer measurements. Check annotations carefully before using or sharing the copy. An annotation is not a clinical correction or authorization.
 
 ### Add or change your notes
 
@@ -136,7 +136,7 @@ The demo report is clearly marked **SYNTHETIC TRAINING DATA ONLY — NOT A PATIE
 | You cannot sign in | Check that you are using your own account. Ask the administrator to check that it is active. |
 | You cannot find a result | Select **Refresh**, clear the search box and set the status filter to **All statuses**. |
 | The sample or patient details do not match | Stop. Ask the laboratory supervisor to resolve the mismatch. |
-| A PDF or image will not upload | Check that it is a PDF, PNG or JPG and smaller than 15 MB. |
+| A PDF or image will not upload | Check that it is a PDF, DOC, DOCX, PNG or JPG and smaller than 15 MB. |
 | A document will not open | Refresh the result and try again. If it still fails, ask the administrator to check the stored file. |
 | You cannot save notes or a review | Check your account role and ask the administrator if access is correct. |
 | Analyzer results are not arriving | Contact the system administrator. The native HumaCount connection is not yet validated in this development build. |

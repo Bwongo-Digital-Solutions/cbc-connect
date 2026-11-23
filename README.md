@@ -16,11 +16,21 @@ CBC Connect is an independent CBC analyzer results receiving and review workspac
 ## Run locally
 ```bash
 cp .env.example .env
+# Edit .env and replace every placeholder with unique random secrets
 docker compose up --build
 ```
 Dashboard: http://localhost:5173  
 API documentation: http://localhost:8000/docs  
 Health: http://localhost:8000/health
+
+## Authentication and access
+- The initial administrator is created from CBC_BOOTSTRAP_ADMIN and CBC_BOOTSTRAP_PASSWORD on first startup.
+- Sign in through the dashboard. Additional staff accounts are created by an administrator with POST /api/v1/users and one of TECHNICIAN, SUPERVISOR or ADMIN roles.
+- API sessions use expiring JWT bearer tokens. Analyzer ingestion uses the separate X-Analyzer-Key header.
+- Configure HTTPS, secure secrets and backups before using any network-accessible deployment.
+
+## Report templates
+DOCX templates are rendered with docxtpl and converted to PDF using headless LibreOffice. Template authors can use these Jinja placeholders: sample_id, patient_reference, analyzer, reviewer, comments, received_at, reviewed_at, and results. The results variable is a list of objects with code, value, unit and flag fields. Uploaded PDF files are retained for reference but are not mergeable templates.
 
 ## API overview
 - `GET /api/v1/dashboard`
@@ -31,9 +41,15 @@ Health: http://localhost:8000/health
 - `POST /api/v1/results/{id}/review`
 - `GET/POST /api/v1/analytes`
 - `GET/POST /api/v1/templates`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/users` (administrator)
+- `GET/POST /api/v1/reference-intervals` and `POST /api/v1/reference-intervals/{id}/verify` (second-person review)
 
 ## Important limitations
-This is still an engineering development build. Authentication, role-based authorization, secure identity management, report rendering/merge and PDF generation, validated device parsing, backup/restore, deployment hardening, and clinical validation are not implemented. The reviewer field is an audit label, not proof of identity or authorization. Do not deploy with patient-identifiable data or use this system for clinical decisions until those controls and validations are completed.
+This is still an engineering development build. Authentication and role checks, migrations, basic automated tests, DOCX merge/PDF rendering, and backup scripts are implemented as development foundations. They have not yet undergone security testing, operational acceptance or clinical validation. The HumaCount parser remains intentionally disabled until real device exports and protocol settings are supplied. Reference intervals are stored as drafts and are not used for automatic flags. The reviewer field is an audit label, not proof of identity or authorization. Do not deploy with patient-identifiable data or use this system for clinical decisions until those controls and validations are completed.
+
+## Backup and restore
+See docs/backup-restore.md and run sh scripts/backup.sh for database and template-volume backups.
 
 ## HumaCount 30TS
 Do not assume a protocol. Confirm the exact model/firmware, configured serial/TCP interface, protocol/export format and settings. Obtain de-identified sample messages/exports and validate a device-specific parser. The JSON ingestion endpoint accepts normalized development data only.

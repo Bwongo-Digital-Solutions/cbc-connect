@@ -113,5 +113,7 @@ class ClinicProfile(Base):
     header_text: Mapped[str] = mapped_column(Text, default="")
     footer_text: Mapped[str] = mapped_column(Text, default="Powered by ClinicHIS")
     logo_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    logo_display_mode: Mapped[str] = mapped_column(String(20), default="header")
+    logo_opacity: Mapped[float] = mapped_column(Float, default=0.10)
     updated_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

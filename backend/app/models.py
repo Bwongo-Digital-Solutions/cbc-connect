@@ -12,6 +12,9 @@ class CBCResult(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     sample_id: Mapped[str] = mapped_column(String(120), index=True)
     patient_reference: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    patient_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    patient_age: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    patient_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     analyzer: Mapped[str] = mapped_column(String(120))
     device_id: Mapped[str] = mapped_column(String(120), index=True)
     observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -97,3 +100,18 @@ class ResultDocument(Base):
     parent_document_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     document_kind: Mapped[str] = mapped_column(String(20), default="SOURCE")
     annotation_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
+class ClinicProfile(Base):
+    __tablename__ = "clinic_profile"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinic_name: Mapped[str] = mapped_column(String(200), default="Clinic")
+    address: Mapped[str] = mapped_column(Text, default="")
+    phone: Mapped[str] = mapped_column(String(120), default="0775-872-454, 0751-319-201")
+    email: Mapped[str] = mapped_column(String(160), default="")
+    theme_color: Mapped[str] = mapped_column(String(7), default="#0879D9")
+    header_text: Mapped[str] = mapped_column(Text, default="")
+    footer_text: Mapped[str] = mapped_column(Text, default="Powered by ClinicHIS")
+    logo_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

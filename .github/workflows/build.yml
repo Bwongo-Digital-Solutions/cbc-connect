@@ -18,6 +18,8 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: python -m compileall -q backend/app
       - run: PYTHONPATH=backend pytest -q backend/tests
+      - working-directory: backend
+        run: DATABASE_URL=sqlite:///./migration-test.db alembic upgrade head
   frontend:
     runs-on: ubuntu-latest
     steps:

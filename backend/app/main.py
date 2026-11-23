@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import os
+import math
 from pathlib import Path
 from fastapi import FastAPI, Depends, Header, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -303,8 +304,13 @@ def add_reference_interval(payload: dict, request: Request, db: Session = Depend
     population = str(payload.get("population", "")).strip()
     unit = str(payload.get("unit", "")).strip()
     lower, upper = payload.get("lower_value"), payload.get("upper_value")
-    if not all([code, source, population, unit]) or lower is None or upper is None or float(lower) > float(upper):
-        raise HTTPException(422, "Provide analyte, population, source, unit and valid bounds")
+    if not all([code, source, population, unit]) or lower is None or upper is None:
+        raise HTTPException(422, "Provide analyte, population, source and unit")
+    if not math.isfinite(float(lower)) or not math.isfinite(float(upper)) or float(lower) > float(upper):
+        raise HTTPException(422, "Reference interval bounds must be finite and lower must not exceed upper")
+    age_min, age_max = payload.get("age_min_days"), payload.get("age_max_days")
+    if age_min is not None and age_max is not None and int(age_min) > int(age_max):
+        raise HTTPException(422, "Minimum age must not exceed maximum age")
     item = ReferenceInterval(analyte_code=code, population=population,
         age_min_days=payload.get("age_min_days"), age_max_days=payload.get("age_max_days"),
         sex=str(payload.get("sex", "ALL")).upper(), lower_value=float(lower), upper_value=float(upper),

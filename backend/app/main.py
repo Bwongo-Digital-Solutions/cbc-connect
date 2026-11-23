@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from .db import Base, engine, get_db
-from .models import CBCResult, ResultReview, AuditEvent, AnalyteConfig, ReportTemplate, UserAccount
+from .models import CBCResult, ResultReview, AuditEvent, AnalyteConfig, ReportTemplate, UserAccount, ReferenceInterval
 from .schemas import AnalyzerPayload, ResultOut, ManualSample, ReviewIn, AnalyteIn
 from .security import authenticate, create_access_token, get_current_user, hash_password, decode_access_token
 from fastapi import Request
@@ -274,3 +274,46 @@ def generate_report(result_id: int, template_id: int, db: Session = Depends(get_
         raise
     except Exception as exc:
         raise HTTPException(500, "Report generation failed") from exc
+
+
+@app.get("/api/v1/reference-intervals")
+def list_reference_intervals(db: Session = Depends(get_db)):
+    return db.query(ReferenceInterval).order_by(ReferenceInterval.analyte_code, ReferenceInterval.population).all()
+
+@app.post("/api/v1/reference-intervals", status_code=201)
+def add_reference_interval(payload: dict, request: Request, db: Session = Depends(get_db)):
+    actor = request.state.user.get("sub", "staff")
+    code = str(payload.get("analyte_code", "")).strip().upper()
+    source = str(payload.get("source", "")).strip()
+    population = str(payload.get("population", "")).strip()
+    unit = str(payload.get("unit", "")).strip()
+    lower, upper = payload.get("lower_value"), payload.get("upper_value")
+    if not all([code, source, population, unit]) or lower is None or upper is None or float(lower) > float(upper):
+        raise HTTPException(422, "Provide analyte, population, source, unit and valid bounds")
+    item = ReferenceInterval(analyte_code=code, population=population,
+        age_min_days=payload.get("age_min_days"), age_max_days=payload.get("age_max_days"),
+        sex=str(payload.get("sex", "ALL")).upper(), lower_value=float(lower), upper_value=float(upper),
+        unit=unit, source=source, status="DRAFT")
+    db.add(item)
+    audit(db, actor, "REFERENCE_INTERVAL_DRAFTED", details={"analyte_code":code,"source":source})
+    db.commit()
+    db.refresh(item)
+    return item
+
+@app.post("/api/v1/reference-intervals/{interval_id}/verify")
+def verify_reference_interval(interval_id: int, payload: dict, request: Request, db: Session = Depends(get_db)):
+    actor = request.state.user.get("sub", "staff")
+    if request.state.user.get("role") not in {"SUPERVISOR","ADMIN"}:
+        raise HTTPException(403, "Supervisor or administrator role required")
+    item = db.get(ReferenceInterval, interval_id)
+    if not item:
+        raise HTTPException(404, "Reference interval not found")
+    if not str(payload.get("evidence", "")).strip():
+        raise HTTPException(422, "Document the verification evidence")
+    item.status = "VERIFIED"
+    item.verified_by = actor
+    item.verified_at = datetime.now(timezone.utc)
+    audit(db, actor, "REFERENCE_INTERVAL_VERIFIED", details={"interval_id":interval_id,"evidence":payload["evidence"]})
+    db.commit()
+    return {"id":item.id,"status":item.status,"verified_by":actor,"verified_at":item.verified_at,
+            "note":"Verification is a local laboratory governance action, not automated clinical validation."}

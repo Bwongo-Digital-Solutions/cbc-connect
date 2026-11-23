@@ -15,7 +15,8 @@ function printReviewedResult(detail:Detail){
  win.document.close()
 }
 async function request(path:string, init:RequestInit={}) {
- const response=await fetch(API+path,init)
+ const headers=new Headers(init.headers||{}); const token=localStorage.getItem('cbc_token'); if(token) headers.set('Authorization','Bearer '+token)
+ const response=await fetch(API+path,{...init,headers})
  if(!response.ok){let message='Request failed';try{const body=await response.json();message=body.detail||message}catch{};throw new Error(message)}
  return response.status===204?null:response.json()
 }
@@ -32,7 +33,7 @@ export default function App(){
   catch(e){setError((e as Error).message)}
  }
  async function loadTab(){try{if(tab==='analytes')setAnalytes(await request('/api/v1/analytes'));if(tab==='templates')setTemplates(await request('/api/v1/templates'))}catch(e){setError((e as Error).message)}}
- useEffect(()=>{refresh()},[])
+ useEffect(()=>{if(token) refresh()},[token])
  useEffect(()=>{loadTab()},[tab])
  const filtered=useMemo(()=>results.filter(r=>(status==='ALL'||r.status===status)&&[r.sample_id,r.patient_reference||'',r.analyzer].join(' ').toLowerCase().includes(query.toLowerCase())),[results,status,query])
  async function openResult(id:number){try{const d=await request('/api/v1/results/'+id);setSelected(d);setReviewer('');setComments('');setReviewValues(d.result.values)}catch(e){setError((e as Error).message)}}
@@ -40,8 +41,10 @@ export default function App(){
  async function submitReview(e:FormEvent){e.preventDefault();if(!selected)return;setBusy(true);setError('');try{const payload={reviewer,comments,reviewed_values:reviewValues};await request('/api/v1/results/'+selected.result.id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});setNotice('Review recorded. Original analyzer values remain unchanged.');setSelected(null);await refresh()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
  async function saveAnalyte(e:FormEvent){e.preventDefault();try{await request('/api/v1/analytes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...analyte,unit:analyte.unit||null})});setAnalyte({code:'',display_name:'',unit:'',precision:2});setAnalytes(await request('/api/v1/analytes'));setNotice('Analyte configuration saved.')}catch(e){setError((e as Error).message)}}
  async function uploadTemplate(e:FormEvent<HTMLFormElement>){e.preventDefault();const form=e.currentTarget;const data=new FormData(form);try{await request('/api/v1/templates',{method:'POST',body:data});form.reset();setTemplates(await request('/api/v1/templates'));setNotice('Template uploaded.')}catch(err){setError((err as Error).message)}}
+ async function signIn(e:FormEvent){e.preventDefault();setLoginError('');try{const response=await fetch(API+'/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(credentials)});const body=await response.json();if(!response.ok)throw new Error(body.detail||'Login failed');localStorage.setItem('cbc_token',body.access_token);setToken(body.access_token)}catch(err){setLoginError((err as Error).message)}}
+ if(!token) return <main className="login-shell"><form className="login-card" onSubmit={signIn}><span className="logo">CBC</span><h1>CBC Connect</h1><p className="muted">Sign in to the laboratory workspace.</p>{loginError&&<div className="alert error">{loginError}</div>}<label>Username<input required autoComplete="username" value={credentials.username} onChange={e=>setCredentials({...credentials,username:e.target.value})}/></label><label>Password<input required type="password" autoComplete="current-password" value={credentials.password} onChange={e=>setCredentials({...credentials,password:e.target.value})}/></label><button>Sign in</button></form></main>
  return <main className="shell">
-  <header className="topbar"><div className="brand"><span className="logo">CBC</span><div><strong>CBC Connect</strong><small>Standalone laboratory workspace</small></div></div><span className="badge">Standalone mode</span></header>
+  <header className="topbar"><div className="brand"><span className="logo">CBC</span><div><strong>CBC Connect</strong><small>Standalone laboratory workspace</small></div></div><div className="top-actions"><span className="badge">Standalone mode</span><button className="secondary" onClick={()=>{localStorage.removeItem("cbc_token");setToken("")}}>Sign out</button></div></header>
   <section className="intro"><div><p className="eyebrow">LABORATORY WORKSPACE</p><h1>Complete blood count results</h1><p className="muted">Register samples, receive analyzer results and complete documented review.</p></div><div className="device"><span className="dot"></span><div><b>Analyzer receiver</b><small>Protocol configuration pending</small></div></div></section>
   <nav className="tabs">{[['results','Results queue'],['samples','Register sample'],['analytes','Analyte setup'],['templates','Report templates']].map(([id,label])=><button className={tab===id?'active':''} onClick={()=>{setTab(id);setSelected(null);setNotice('')}} key={id}>{label}</button>)}</nav>
   {error&&<div className="alert error">{error}</div>}{notice&&<div className="alert success">{notice}</div>}

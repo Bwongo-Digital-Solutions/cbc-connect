@@ -433,7 +433,8 @@ def update_patient_details(result_id: int, payload: dict, request: Request, db: 
 def _clinic_profile_dict(profile: ClinicProfile):
     return {"clinic_name": profile.clinic_name, "address": profile.address, "phone": profile.phone,
             "email": profile.email, "theme_color": profile.theme_color, "header_text": profile.header_text,
-            "footer_text": profile.footer_text, "logo_display_mode": profile.logo_display_mode,\n            "logo_opacity": profile.logo_opacity, "has_logo": bool(profile.logo_path),
+            "footer_text": profile.footer_text, "logo_display_mode": profile.logo_display_mode,
+            "logo_opacity": profile.logo_opacity, "has_logo": bool(profile.logo_path),
             "updated_by": profile.updated_by, "updated_at": profile.updated_at}
 
 

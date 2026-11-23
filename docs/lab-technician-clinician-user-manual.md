@@ -95,7 +95,7 @@ Before generating a final report:
 2. Enter or verify the **Patient name**, **Age** and **Address** in the Patient details section.
 3. Select **Save patient details**. These fields are stored with the CBC result and appear on the final report.
 4. A final report can only be generated after a result has a saved review.
-5. Select **Generate branded final PDF**. The generated PDF uses the clinic's saved logo, theme colour, header, address and footer.
+5. Select **Generate branded final PDF** to download the report, or **Print branded final PDF** to open the same branded report in the browser print dialog. The generated PDF uses the clinic's saved logo, theme colour, header, address and footer.
 6. Check the patient identity, sample details, measurements, units and comments before printing or sharing.
 
 The branded report footer includes **Powered by ClinicHIS** and the clinic contact numbers. The original uploaded source document and original analyzer measurements are not changed.

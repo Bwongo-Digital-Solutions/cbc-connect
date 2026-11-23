@@ -785,7 +785,12 @@ def generate_report(result_id: int, template_id: int, db: Session = Depends(get_
     work = Path(tempfile.mkdtemp(prefix="cbc-report-"))
     try:
         doc = DocxTemplate(template.storage_path)
+        profile = _get_or_create_clinic_profile(db)
         context = {"sample_id":result.sample_id,"patient_reference":result.patient_reference or "",
+            "patient_name":result.patient_name or "Not recorded","patient_age":result.patient_age or "Not recorded",
+            "patient_address":result.patient_address or "Not recorded",
+            "clinic_name":profile.clinic_name,"clinic_address":profile.address,"clinic_phone":profile.phone,
+            "clinic_email":profile.email,"header_text":profile.header_text,"footer_text":profile.footer_text,
             "analyzer":result.analyzer,"reviewer":review.reviewer,"comments":review.comments or "",
             "received_at":result.received_at.isoformat(),"reviewed_at":review.reviewed_at.isoformat(),
             "results":[{"code":k,"value":v.get("value"),"unit":v.get("unit") or "",
@@ -793,6 +798,68 @@ def generate_report(result_id: int, template_id: int, db: Session = Depends(get_
         doc.render(context)
         docx_path = work / f"CBC-{result.id}.docx"
         doc.save(docx_path)
+
+        # Apply the saved clinic identity to every DOCX-template report, even when
+        # the uploaded template does not contain explicit branding placeholders.
+        branded_doc = Document(docx_path)
+        from docx.shared import RGBColor, Pt
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+        try:
+            rgb = tuple(int(profile.theme_color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4))
+        except Exception:
+            rgb = (8, 121, 217)
+        for section in branded_doc.sections:
+            header = section.header
+            header.is_linked_to_previous = False
+            hp = header.paragraphs[0]
+            hp.clear()
+            if profile.logo_path and Path(profile.logo_path).is_file():
+                try:
+                    hp.add_run().add_picture(profile.logo_path, width=Inches(0.55))
+                    hp.add_run("   ")
+                except Exception:
+                    pass
+            clinic_run = hp.add_run(profile.clinic_name or "Clinic")
+            clinic_run.bold = True
+            clinic_run.font.size = Pt(12)
+            clinic_run.font.color.rgb = RGBColor(*rgb)
+            address_text = " | ".join(x for x in [profile.address, profile.email] if x)
+            if address_text:
+                address_run = hp.add_run("\n" + address_text)
+                address_run.font.size = Pt(8)
+                address_run.font.color.rgb = RGBColor(83, 101, 121)
+            if profile.header_text:
+                extra = hp.add_run("\n" + profile.header_text)
+                extra.font.size = Pt(8)
+            footer = section.footer
+            footer.is_linked_to_previous = False
+            fp = footer.paragraphs[0]
+            fp.clear()
+            fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            footer_run = fp.add_run(f"{profile.footer_text or 'Powered by ClinicHIS'} | {profile.phone or '0775-872-454, 0751-319-201'}")
+            footer_run.font.size = Pt(8)
+            footer_run.font.color.rgb = RGBColor(83, 101, 121)
+
+        # Patient identity is inserted automatically, independently of template placeholders.
+        patient_table = branded_doc.add_table(rows=3, cols=2)
+        patient_table.style = "Table Grid"
+        patient_rows = [("Patient name", result.patient_name or "Not recorded"),
+                        ("Age", result.patient_age or "Not recorded"),
+                        ("Address", result.patient_address or "Not recorded")]
+        for row, (label, value) in zip(patient_table.rows, patient_rows):
+            row.cells[0].text = label
+            row.cells[1].text = value
+            shade = OxmlElement("w:shd")
+            shade.set(qn("w:fill"), profile.theme_color.lstrip("#").upper() if profile.theme_color else "0879D9")
+            row.cells[0]._tc.get_or_add_tcPr().append(shade)
+            for run in row.cells[0].paragraphs[0].runs:
+                run.bold = True
+                run.font.color.rgb = RGBColor(255, 255, 255)
+        if branded_doc.paragraphs:
+            branded_doc.paragraphs[0]._p.addnext(patient_table._tbl)
+        branded_doc.save(docx_path)
         completed = subprocess.run(["libreoffice","--headless","--convert-to","pdf","--outdir",str(work),str(docx_path)],
                                    capture_output=True, timeout=60)
         pdf_path = work / f"CBC-{result.id}.pdf"

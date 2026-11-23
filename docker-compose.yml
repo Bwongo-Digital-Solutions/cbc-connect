@@ -24,8 +24,10 @@ services:
       CBC_BOOTSTRAP_PASSWORD: ${CBC_BOOTSTRAP_PASSWORD:?Set CBC_BOOTSTRAP_PASSWORD in .env}
       CBC_ANALYZER_API_KEY: ${CBC_ANALYZER_API_KEY:?Set CBC_ANALYZER_API_KEY in .env}
       TEMPLATE_DIR: /data/templates
+      DOCUMENT_DIR: /data/documents
     volumes:
       - template_data:/data/templates
+      - result_documents:/data/documents
     ports: ["8900:8900"]
     depends_on:
       db: {condition: service_healthy}
@@ -40,3 +42,4 @@ services:
 volumes:
   postgres_data:
   template_data:
+  result_documents:

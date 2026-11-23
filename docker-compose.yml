@@ -25,14 +25,14 @@ services:
       TEMPLATE_DIR: /data/templates
     volumes:
       - template_data:/data/templates
-    ports: ["8000:8000"]
+    ports: ["8900:8900"]
     depends_on:
       db: {condition: service_healthy}
     restart: unless-stopped
   frontend:
     build: ./frontend
     environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8900}
     ports: ["5173:5173"]
     depends_on: [backend]
     restart: unless-stopped

@@ -9,6 +9,9 @@ class Measurement(BaseModel):
 class AnalyzerPayload(BaseModel):
     sample_id: str = Field(min_length=1, max_length=120)
     patient_reference: str | None = None
+    patient_name: str | None = Field(default=None, max_length=200)
+    patient_age: str | None = Field(default=None, max_length=80)
+    patient_address: str | None = Field(default=None, max_length=1000)
     analyzer: str = Field(min_length=1, max_length=120)
     observed_at: datetime | None = None
     values: dict[str, Measurement]

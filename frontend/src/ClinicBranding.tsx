@@ -13,6 +13,7 @@ export default function ClinicBranding({api,token}:Props){
  const [profile,setProfile]=useState<Profile>(defaults)
  const [logo,setLogo]=useState<File|null>(null)
  const [logoUrl,setLogoUrl]=useState('')
+ const [selectedLogoUrl,setSelectedLogoUrl]=useState('')
  const [busy,setBusy]=useState(false)
  const [message,setMessage]=useState('')
  const [error,setError]=useState('')
@@ -28,7 +29,8 @@ export default function ClinicBranding({api,token}:Props){
    }else setLogoUrl('')
   }catch(e){setError((e as Error).message)}
  }
- useEffect(()=>{load();return()=>{if(logoUrl)URL.revokeObjectURL(logoUrl)}},[token])
+ useEffect(()=>{load()},[token])
+ useEffect(()=>{if(!logo){setSelectedLogoUrl('');return}const url=URL.createObjectURL(logo);setSelectedLogoUrl(url);return()=>URL.revokeObjectURL(url)},[logo])
  async function save(e:FormEvent){
   e.preventDefault();setBusy(true);setError('');setMessage('')
   try{
@@ -45,7 +47,7 @@ export default function ClinicBranding({api,token}:Props){
    await load()
   }catch(e){setError((e as Error).message)}finally{setBusy(false)}
  }
- function field(name:keyof Profile,label:string,wide=false){
+ function field(name:Exclude<keyof Profile,'has_logo'>,label:string,wide=false){
   return <label className={wide?'branding-wide':''}>{label}
    {name==='address'||name==='header_text'||name==='footer_text'
     ?<textarea rows={name==='address'?3:2} value={String(profile[name]||'')} onChange={e=>setProfile({...profile,[name]:e.target.value})}/>
@@ -66,7 +68,7 @@ export default function ClinicBranding({api,token}:Props){
    <label className="branding-wide">Clinic logo (PNG or JPG, maximum 2 MB)
     <input type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" onChange={e=>setLogo(e.target.files?.[0]||null)}/>
    </label>
-   {(logoUrl||logo)&&<div className="branding-logo-preview branding-wide"><img src={logo?URL.createObjectURL(logo):logoUrl} alt="Clinic logo preview"/><span>{logo?.name||'Current saved logo'}</span></div>}
+   {(logoUrl||logo)&&<div className="branding-logo-preview branding-wide"><img src={logo?selectedLogoUrl:logoUrl} alt="Clinic logo preview"/><span>{logo?.name||'Current saved logo'}</span></div>}
    <div className="branding-wide branding-preview" style={{borderTopColor:profile.theme_color}}>
     <strong style={{color:profile.theme_color}}>{profile.clinic_name||'Clinic name'}</strong>
     <span>{profile.address||'Clinic address appears in the document header'}</span>

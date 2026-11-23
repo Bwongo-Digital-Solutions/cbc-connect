@@ -149,6 +149,9 @@ def ingest(payload: AnalyzerPayload, x_device_id: str = Header(default="unregist
     values = {key: measurement.model_dump() for key, measurement in payload.values.items()}
     if result:
         result.patient_reference = payload.patient_reference or result.patient_reference
+        result.patient_name = payload.patient_name or result.patient_name
+        result.patient_age = payload.patient_age or result.patient_age
+        result.patient_address = payload.patient_address or result.patient_address
         result.analyzer = payload.analyzer
         result.device_id = x_device_id
         result.observed_at = payload.observed_at
@@ -157,6 +160,7 @@ def ingest(payload: AnalyzerPayload, x_device_id: str = Header(default="unregist
               {"analyzer": payload.analyzer, "sample_id": payload.sample_id})
     else:
         result = CBCResult(sample_id=payload.sample_id, patient_reference=payload.patient_reference,
+            patient_name=payload.patient_name, patient_age=payload.patient_age, patient_address=payload.patient_address,
             analyzer=payload.analyzer, device_id=x_device_id, observed_at=payload.observed_at,
             status="PENDING_REVIEW", values=values)
         db.add(result)

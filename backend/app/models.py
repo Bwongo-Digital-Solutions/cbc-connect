@@ -55,9 +55,6 @@ class ReportTemplate(Base):
     storage_path: Mapped[str] = mapped_column(String(500))
     uploaded_by: Mapped[str] = mapped_column(String(120))
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    parent_document_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
-    document_kind: Mapped[str] = mapped_column(String(20), default="SOURCE")
-    annotation_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class UserAccount(Base):

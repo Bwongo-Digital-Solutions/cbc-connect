@@ -1,4 +1,3 @@
-from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 import os, sys
@@ -6,8 +5,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from app.db import Base
 from app import models  # noqa: F401
 config = context.config
-if config.config_file_name:
-    fileConfig(config.config_file_name)
 target_metadata = Base.metadata
 def run_migrations_offline():
     url = os.getenv("DATABASE_URL", config.get_main_option("sqlalchemy.url"))

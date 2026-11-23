@@ -30,6 +30,9 @@ PostgreSQL (host tools only): localhost:5434 (container port 5432; bound to loop
 - API sessions use expiring JWT bearer tokens. Analyzer ingestion uses the separate X-Analyzer-Key header.
 - Configure HTTPS, secure secrets and backups before using any network-accessible deployment.
 
+## Staff user manual
+See [Lab technician and clinician user manual](docs/lab-technician-clinician-user-manual.md) for sign-in, sample registration, result review, reporting, supervisor tasks, troubleshooting and safe-use guidance.
+
 ## Report templates
 If a clinic has no DOCX template, use **Report templates → Generate sample template** to create an editable starter DOCX. The action reuses an existing DOCX template rather than creating duplicates. Customize and approve the starter under local laboratory procedures before use.
 

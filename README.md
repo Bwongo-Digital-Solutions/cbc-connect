@@ -48,6 +48,9 @@ DOCX templates are rendered with docxtpl and converted to PDF using headless Lib
 ## Important limitations
 This is still an engineering development build. Authentication and role checks, migrations, basic automated tests, DOCX merge/PDF rendering, and backup scripts are implemented as development foundations. They have not yet undergone security testing, operational acceptance or clinical validation. The HumaCount parser remains intentionally disabled until real device exports and protocol settings are supplied. Reference intervals are stored as drafts and are not used for automatic flags. Review and user-management audit actors are taken from the authenticated account; the reviewer text supplied by the browser is not trusted as identity. Do not deploy with patient-identifiable data or use this system for clinical decisions until those controls and validations are completed.
 
+## Synthetic analyzer demo
+Use `sh scripts/ingest-synthetic-demo.sh` with `CBC_ANALYZER_API_KEY` set to the API's configured key. The fixture at `backend/demo/synthetic_cbc_export.json` is fictional normalized JSON, not a real HumaCount protocol export. See `docs/synthetic-demo-data.md`.
+
 ## Backup and restore
 See docs/backup-restore.md and run sh scripts/backup.sh for database and template-volume backups.
 

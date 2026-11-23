@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 type Measurement = { value:number; unit?:string|null; flag?:string|null }
 type Result = { id:number; sample_id:string; patient_reference?:string|null; analyzer:string; device_id:string; observed_at?:string|null; received_at:string; status:string; values:Record<string,Measurement> }
 type Detail = { result:Result; review?:{reviewer:string;comments?:string;reviewed_values:Record<string,Measurement>;reviewed_at:string}|null; audit:Array<{actor:string;action:string;details:Record<string,unknown>;created_at:string}> }
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8900'
 const escapeHtml = (value:unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!))
 function printReviewedResult(detail:Detail){
  const result=detail.result

@@ -11,4 +11,11 @@ if [ -z "$volume" ]; then
 fi
 docker run --rm -v "$volume:/data:ro" -v "$PWD/backups:/backup" alpine:3.20 \
   tar -czf "/backup/cbc-connect-templates-$stamp.tar.gz" -C /data .
-echo "Created $db_file and backups/cbc-connect-templates-$stamp.tar.gz"
+document_volume="$(docker volume ls -q --filter label=com.docker.compose.volume=result_documents | head -n 1)"
+if [ -z "$document_volume" ]; then
+  echo "Could not locate the Compose result_documents volume" >&2
+  exit 1
+fi
+docker run --rm -v "$document_volume:/data:ro" -v "$PWD/backups:/backup" alpine:3.20 \
+  tar -czf "/backup/cbc-connect-documents-$stamp.tar.gz" -C /data .
+echo "Created $db_file, backups/cbc-connect-templates-$stamp.tar.gz and backups/cbc-connect-documents-$stamp.tar.gz"

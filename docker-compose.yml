@@ -18,6 +18,9 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://cbc_connect:change-this-local-password@db:5432/cbc_connect}
       CORS_ORIGINS: http://localhost:5173
+      TEMPLATE_DIR: /data/templates
+    volumes:
+      - template_data:/data/templates
     ports: ["8000:8000"]
     depends_on:
       db: {condition: service_healthy}
@@ -31,3 +34,4 @@ services:
     restart: unless-stopped
 volumes:
   postgres_data:
+  template_data:

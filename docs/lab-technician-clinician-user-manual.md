@@ -88,17 +88,35 @@ The original analyzer measurements remain unchanged. The software stores reviewe
 
 A result marked **REVIEWED** is not automatically approved for patient release. Continue to follow the clinic's own authorization and communication process.
 
-## 6. Print a reviewed report
+## 6. Patient details and branded final report
 
-For a result that has a saved review:
-1. Open the result.
-2. Select **Print report / PDF** or choose a DOCX template and select **Generate PDF from template**.
-3. Open the generated report.
-4. Check the sample details, values, units and comments.
+Before generating a final report:
+1. Open the CBC result and confirm the correct patient and sample identity.
+2. Enter or verify the **Patient name**, **Age** and **Address** in the Patient details section.
+3. Select **Save patient details**. These fields are stored with the CBC result and appear on the final report.
+4. A final report can only be generated after a result has a saved review.
+5. Select **Generate branded final PDF**. The generated PDF uses the clinic's saved logo, theme colour, header, address and footer.
+6. Check the patient identity, sample details, measurements, units and comments before printing or sharing.
+
+The branded report footer includes **Powered by ClinicHIS** and the clinic contact numbers. The original uploaded source document and original analyzer measurements are not changed.
+
+## 7. Configure clinic document branding
+
+Clinic supervisors and administrators can open the **Clinic branding** tab to set the default layout used for every newly generated final CBC PDF.
+
+- Clinic name, address, email and contact numbers.
+- Theme colour using a six-digit hex colour (for example, `#0879D9`).
+- Clinic logo (PNG or JPG, maximum 2 MB).
+- Optional additional header text.
+- Footer text. The generated footer also includes Powered by ClinicHIS and the configured contact numbers.
+
+Select **Save clinic branding**. The settings are stored in the clinic database and reused automatically; they do not need to be entered for every report. Return to this tab to edit the defaults. Changes apply to reports generated after the change; previously generated PDFs remain as they were.
+
+Patient name, age and address are patient-specific and must be checked for each result. Do not copy patient details from another record.
 
 Only use a report for its intended purpose after the responsible staff have completed the clinic's approval process. A PDF uploaded as a source document is for viewing; it is not a report template.
 
-## 7. User roles
+## 8. User roles
 
 | Role | What the role can do |
 | --- | --- |
@@ -109,7 +127,7 @@ Only use a report for its intended purpose after the responsible staff have comp
 
 Your administrator assigns your role. If a button or section is not available, ask the administrator to check your access. Do not share accounts to get around a permission.
 
-## 8. Supervisor: report templates and analyte display
+## 9. Supervisor: report templates and analyte display
 
 Supervisors and administrators can manage the clinic's report templates and analyte display settings.
 
@@ -123,13 +141,13 @@ If the clinic does not have a DOCX report template:
 
 Analyte display settings change labels and display formatting only. They do not validate results, change units, or define clinical reference intervals.
 
-## 9. Demo results
+## 10. Demo results
 
 The system includes fictional CBC records for training and software demonstration. The first demo record can also generate a sample PDF source report from its fictional values. Open the record named **SYNTH-CBC-0001**, select **Create demo report PDF**, then select **View document**.
 
 The demo report is clearly marked **SYNTHETIC TRAINING DATA ONLY — NOT A PATIENT REPORT**. It is not a real analyzer export, not a real patient result, and not suitable for clinical decisions. Do not upload demo documents into a real patient record or use demo values for patient care.
 
-## 10. If something goes wrong
+## 11. If something goes wrong
 
 | Problem | What to do |
 | --- | --- |
@@ -141,7 +159,7 @@ The demo report is clearly marked **SYNTHETIC TRAINING DATA ONLY — NOT A PATIE
 | You cannot save notes or a review | Check your account role and ask the administrator if access is correct. |
 | Analyzer results are not arriving | Contact the system administrator. The native HumaCount connection is not yet validated in this development build. |
 
-## 11. Protect patient information
+## 12. Protect patient information
 
 - Use only the patient information needed for your approved work.
 - Do not use real patient details in demo records, screenshots or public support messages.

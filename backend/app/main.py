@@ -16,7 +16,7 @@ from starlette.background import BackgroundTask
 from docxtpl import DocxTemplate
 from docx import Document
 from docx.shared import Inches
-import subprocess, tempfile, shutil
+import subprocess, tempfile, shutil, zipfile
 
 app = FastAPI(title="CBC Connect API", version="0.2.0")
 origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
@@ -203,17 +203,29 @@ async def upload_result_document(result_id: int, request: Request,
     if not result:
         raise HTTPException(404, "Result not found")
     suffix = Path(file.filename or "").suffix.lower()
-    allowed = {".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+    allowed = {
+        ".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".doc": "application/msword",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
     if suffix not in allowed:
-        raise HTTPException(415, "Upload a PDF, PNG or JPG source report")
+        raise HTTPException(415, "Upload a PDF, DOC, DOCX, PNG or JPG source report")
     content = await file.read()
     if not content or len(content) > 15 * 1024 * 1024:
         raise HTTPException(413, "Document must be between 1 byte and 15 MB")
     valid = ((suffix == ".pdf" and content.startswith(b"%PDF-")) or
              (suffix == ".png" and content[:8] == bytes([137,80,78,71,13,10,26,10])) or
-             (suffix in {".jpg", ".jpeg"} and content[:3] == bytes([255,216,255])))
+             (suffix in {".jpg", ".jpeg"} and content[:3] == bytes([255,216,255])) or
+             (suffix == ".doc" and content.startswith(bytes([0xD0,0xCF,0x11,0xE0,0xA1,0xB1,0x1A,0xE1]))))
+    if suffix == ".docx":
+        try:
+            import io
+            with zipfile.ZipFile(io.BytesIO(content)) as archive:
+                valid = "word/document.xml" in archive.namelist() and archive.testzip() is None
+        except (zipfile.BadZipFile, OSError):
+            valid = False
     if not valid:
-        raise HTTPException(415, "The file content does not match its PDF or image extension")
+        raise HTTPException(415, "The file content does not match its document extension")
     stored_name = os.urandom(16).hex() + suffix
     target = DOCUMENT_DIR / stored_name
     target.write_bytes(content)
@@ -228,6 +240,36 @@ async def upload_result_document(result_id: int, request: Request,
     return {"id": item.id, "filename": item.filename, "content_type": item.content_type,
             "uploaded_by": item.uploaded_by, "notes": item.notes, "uploaded_at": item.uploaded_at}
 
+
+@app.get("/api/v1/results/{result_id}/documents/{document_id}/preview")
+def preview_result_document(result_id: int, document_id: int, db: Session = Depends(get_db)):
+    item = db.query(ResultDocument).filter_by(id=document_id, result_id=result_id).first()
+    if not item or not Path(item.storage_path).is_file():
+        raise HTTPException(404, "Source document not found")
+    suffix = Path(item.filename).suffix.lower()
+    if suffix not in {".doc", ".docx"}:
+        return FileResponse(item.storage_path, media_type=item.content_type,
+                            filename=item.filename, content_disposition_type="inline",
+                            headers={"X-Content-Type-Options": "nosniff"})
+    workdir = Path(tempfile.mkdtemp(prefix="cbc-doc-preview-"))
+    try:
+        completed = subprocess.run(
+            ["libreoffice", "-env:UserInstallation=file://" + str(workdir / "profile"),
+             "--headless", "--convert-to", "pdf", "--outdir", str(workdir), item.storage_path],
+            capture_output=True, text=True, timeout=45, check=False
+        )
+        converted = workdir / (Path(item.storage_path).stem + ".pdf")
+        if completed.returncode != 0 or not converted.is_file():
+            shutil.rmtree(workdir, ignore_errors=True)
+            raise HTTPException(422, "This Word document could not be converted for preview or printing")
+        return FileResponse(str(converted), media_type="application/pdf",
+                            filename=Path(item.filename).stem + ".pdf",
+                            content_disposition_type="inline",
+                            headers={"X-Content-Type-Options": "nosniff"},
+                            background=BackgroundTask(shutil.rmtree, str(workdir), ignore_errors=True))
+    except subprocess.TimeoutExpired:
+        shutil.rmtree(workdir, ignore_errors=True)
+        raise HTTPException(422, "Word document conversion timed out")
 
 @app.get("/api/v1/results/{result_id}/documents/{document_id}")
 def view_result_document(result_id: int, document_id: int, db: Session = Depends(get_db)):

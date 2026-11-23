@@ -15,7 +15,7 @@ export default function DocumentAnnotator({document,resultId,onClose,onSave}:Pro
  const baseRef=useRef<HTMLCanvasElement>(null), overlayRef=useRef<HTMLCanvasElement>(null), pdfRef=useRef<any>(null), imageRef=useRef<HTMLImageElement|null>(null)
  const overlays=useRef<Record<number,string>>({}), drawing=useRef(false), last=useRef<{x:number;y:number}|null>(null)
  const [page,setPage]=useState(1),[pages,setPages]=useState(1),[tool,setTool]=useState<Tool>('highlight'),[comments,setComments]=useState<Mark[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[dimensions,setDimensions]=useState({width:0,height:0})
- const isWord=/\\.(doc|docx)$/i.test(document.filename)
+ const isWord=/\.(doc|docx)$/i.test(document.filename)
  const isPdf=document.content_type==='application/pdf'||isWord
  const sourcePath=API+'/api/v1/results/'+resultId+'/documents/'+document.id+(isWord?'/preview':'')
  useEffect(()=>{let active=true;(async()=>{try{

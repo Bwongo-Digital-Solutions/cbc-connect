@@ -64,3 +64,20 @@ class UserAccount(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(30), default="TECHNICIAN")
     active: Mapped[bool] = mapped_column(default=True)
+
+
+class ReferenceInterval(Base):
+    __tablename__ = "reference_intervals"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    analyte_code: Mapped[str] = mapped_column(String(40), index=True)
+    population: Mapped[str] = mapped_column(String(160))
+    age_min_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    age_max_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sex: Mapped[str] = mapped_column(String(20), default="ALL")
+    lower_value: Mapped[float] = mapped_column()
+    upper_value: Mapped[float] = mapped_column()
+    unit: Mapped[str] = mapped_column(String(40))
+    source: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="DRAFT")
+    verified_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

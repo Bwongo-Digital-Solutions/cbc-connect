@@ -28,7 +28,7 @@ export default function App(){
  const [query,setQuery]=useState(''),[status,setStatus]=useState('ALL'),[selected,setSelected]=useState<Detail|null>(null)
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false)
  const [sample,setSample]=useState({sample_id:'',patient_reference:''})
- const [reviewer,setReviewer]=useState(''),[comments,setComments]=useState(''),[reviewValues,setReviewValues]=useState<Record<string,Measurement>>({})
+ const [comments,setComments]=useState(''),[reviewValues,setReviewValues]=useState<Record<string,Measurement>>({})
  const [analytes,setAnalytes]=useState<any[]>([]),[analyte,setAnalyte]=useState({code:'',display_name:'',unit:'',precision:2})
  const [templates,setTemplates]=useState<any[]>([]),[reportTemplateId,setReportTemplateId]=useState('')
  async function refresh(){

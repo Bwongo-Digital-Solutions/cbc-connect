@@ -20,8 +20,8 @@ cp .env.example .env
 docker compose up --build
 ```
 Dashboard: http://localhost:5173  
-API documentation: http://localhost:8000/docs  
-Health: http://localhost:8000/health
+API documentation: http://localhost:8900/docs  
+Health: http://localhost:8900/health
 
 ## Authentication and access
 - The initial administrator is created from CBC_BOOTSTRAP_ADMIN and CBC_BOOTSTRAP_PASSWORD on first startup.

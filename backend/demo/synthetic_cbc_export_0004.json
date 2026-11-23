@@ -1,0 +1,84 @@
+{
+  "_demo_notice": "SYNTHETIC TRAINING DATA ONLY. Not a real HumaCount export, not patient data, and not for clinical use.",
+  "sample_id": "SYNTH-CBC-0004",
+  "patient_reference": "SYNTH-PATIENT-0004",
+  "analyzer": "HumaCount 30TS (SIMULATED)",
+  "observed_at": "2026-11-23T11:10:00Z",
+  "values": {
+    "WBC": {
+      "value": 7.23,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "RBC": {
+      "value": 5.33,
+      "unit": "10^12/L",
+      "flag": null
+    },
+    "HGB": {
+      "value": 15.93,
+      "unit": "g/dL",
+      "flag": null
+    },
+    "HCT": {
+      "value": 47.8,
+      "unit": "%",
+      "flag": null
+    },
+    "MCV": {
+      "value": 101.25,
+      "unit": "fL",
+      "flag": null
+    },
+    "MCH": {
+      "value": 33.79,
+      "unit": "pg",
+      "flag": null
+    },
+    "MCHC": {
+      "value": 37.63,
+      "unit": "g/dL",
+      "flag": null
+    },
+    "RDW": {
+      "value": 14.92,
+      "unit": "%",
+      "flag": null
+    },
+    "PLT": {
+      "value": 280,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "MPV": {
+      "value": 10.28,
+      "unit": "fL",
+      "flag": null
+    },
+    "NEU#": {
+      "value": 4.29,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "LYM#": {
+      "value": 2.26,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "MONO#": {
+      "value": 0.45,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "EOS#": {
+      "value": 0.17,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "BASO#": {
+      "value": 0.06,
+      "unit": "10^9/L",
+      "flag": null
+    }
+  }
+}

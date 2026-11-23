@@ -575,8 +575,9 @@ def generate_branded_report(result_id: int, db: Session = Depends(get_db)):
         canvas.line(20 * mm, 17 * mm, width - 20 * mm, 17 * mm)
         canvas.setFillColor(colors.HexColor("#536579"))
         canvas.setFont("Helvetica", 8)
-        canvas.drawString(20 * mm, 11 * mm, f"{footer_text}  |  {phone_text}"[:150])
-        canvas.drawRightString(width - 20 * mm, 11 * mm, f"Page {document.page}")
+        canvas.drawString(20 * mm, 11 * mm, footer_text[:130])
+        canvas.drawString(20 * mm, 7 * mm, f"Contact: {phone_text}"[:130])
+        canvas.drawRightString(width - 20 * mm, 7 * mm, f"Page {document.page}")
         canvas.restoreState()
 
     styles = getSampleStyleSheet()

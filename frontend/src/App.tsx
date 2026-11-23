@@ -44,8 +44,6 @@ export default function App(){
  useEffect(()=>{loadTab()},[tab])
  const filtered=useMemo(()=>results.filter(r=>(status==='ALL'||r.status===status)&&[r.sample_id,r.patient_reference||'',r.analyzer].join(' ').toLowerCase().includes(query.toLowerCase())),[results,status,query])
  async function openResult(id:number){try{const d=await request('/api/v1/results/'+id);setSelected(d);setComments('');setReviewValues(d.result.values);setDocNotes(Object.fromEntries((d.documents||[]).map((x:DocumentItem)=>[x.id,x.notes||''])))}catch(e){setError((e as Error).message)}}
- function isWordDocument(doc:DocumentItem){return /\\.(doc|docx)$/i.test(doc.filename)}
- async function documentBlob(resultId:number,doc:DocumentItem,preview=false){const route=preview||isWordDocument(doc)?'/preview':'';const response=await fetch(API+'/api/v1/results/'+resultId+'/documents/'+doc.id+route,{headers:{Authorization:'Bearer '+localStorage.getItem('cbc_token')}});if(!response.ok)throw new Error('Unable to open document');return response.blob()}
  function isWordDocument(doc:DocumentItem){return /\.(doc|docx)$/i.test(doc.filename)}
  async function documentBlob(resultId:number,doc:DocumentItem,asPreview=false){const suffix=asPreview||isWordDocument(doc)?'/preview':'';const response=await fetch(API+'/api/v1/results/'+resultId+'/documents/'+doc.id+suffix,{headers:{Authorization:'Bearer '+localStorage.getItem('cbc_token')}});if(!response.ok)throw new Error('Unable to open document');return response.blob()}
  async function viewSourceDocument(resultId:number,doc:DocumentItem){try{const blob=await documentBlob(resultId,doc,true);setDocViewer(URL.createObjectURL(blob))}catch(e){setError((e as Error).message)}}

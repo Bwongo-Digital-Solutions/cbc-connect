@@ -19,9 +19,10 @@ cp .env.example .env
 # Edit .env and replace every placeholder with unique random secrets
 docker compose up --build
 ```
-Dashboard: http://localhost:5173  
+Dashboard: http://localhost:5174  
 API documentation: http://localhost:8900/docs  
-Health: http://localhost:8900/health
+Health: http://localhost:8900/health  
+PostgreSQL (host tools only): localhost:5433 (container port 5432; bound to loopback)
 
 ## Authentication and access
 - The initial administrator is created from CBC_BOOTSTRAP_ADMIN and CBC_BOOTSTRAP_PASSWORD on first startup.

@@ -25,7 +25,7 @@ app.add_middleware(CORSMiddleware, allow_origins=[x.strip() for x in origins],
                    allow_headers=["Content-Type", "Authorization", "X-Device-Id", "X-Analyzer-Key"])
 TEMPLATE_DIR = Path(os.getenv("TEMPLATE_DIR", "./data/templates"))
 TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
-DOCUMENT_DIR = Path(os.getenv('DOCUMENT_DIR', '/data/documents'))
+DOCUMENT_DIR = Path(os.getenv('DOCUMENT_DIR', './data/documents'))
 DOCUMENT_DIR.mkdir(parents=True, exist_ok=True)
 
 @app.on_event("startup")

@@ -18,6 +18,10 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://cbc_connect:change-this-local-password@db:5432/cbc_connect}
       CORS_ORIGINS: http://localhost:5173
+      CBC_JWT_SECRET: ${CBC_JWT_SECRET:?Set CBC_JWT_SECRET in .env}
+      CBC_BOOTSTRAP_ADMIN: ${CBC_BOOTSTRAP_ADMIN:-admin}
+      CBC_BOOTSTRAP_PASSWORD: ${CBC_BOOTSTRAP_PASSWORD:?Set CBC_BOOTSTRAP_PASSWORD in .env}
+      CBC_ANALYZER_API_KEY: ${CBC_ANALYZER_API_KEY:?Set CBC_ANALYZER_API_KEY in .env}
       TEMPLATE_DIR: /data/templates
     volumes:
       - template_data:/data/templates

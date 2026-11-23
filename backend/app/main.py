@@ -115,7 +115,8 @@ def result_detail(result_id: int, db: Session = Depends(get_db)):
     events = db.query(AuditEvent).filter_by(result_id=result_id).order_by(AuditEvent.created_at.desc()).all()
     documents = db.query(ResultDocument).filter_by(result_id=result_id).order_by(ResultDocument.uploaded_at.desc()).all()
     document_rows = [{"id": d.id, "filename": d.filename, "content_type": d.content_type,
-                      "uploaded_by": d.uploaded_by, "notes": d.notes, "uploaded_at": d.uploaded_at}
+                      "uploaded_by": d.uploaded_by, "notes": d.notes, "uploaded_at": d.uploaded_at,
+                      "parent_document_id": d.parent_document_id, "document_kind": d.document_kind}
                      for d in documents]
     return {"result": ResultOut.model_validate(result), "review": review, "audit": events,
             "documents": document_rows}
@@ -237,6 +238,46 @@ def view_result_document(result_id: int, document_id: int, db: Session = Depends
                         filename=item.filename, content_disposition_type="inline",
                         headers={"X-Content-Type-Options": "nosniff"})
 
+
+@app.post("/api/v1/results/{result_id}/documents/{document_id}/annotated", status_code=201)
+async def save_annotated_document(result_id: int, document_id: int, request: Request,
+                                  file: UploadFile = File(...), annotations: str = Form("{}"),
+                                  db: Session = Depends(get_db)):
+    source = db.query(ResultDocument).filter_by(id=document_id, result_id=result_id).first()
+    if not source or source.parent_document_id is not None:
+        raise HTTPException(404, "Original source document not found")
+    suffix = Path(file.filename or "").suffix.lower()
+    allowed = {".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+    if suffix not in allowed:
+        raise HTTPException(415, "Annotated copy must be a PDF, PNG or JPG")
+    content = await file.read()
+    if not content or len(content) > 20 * 1024 * 1024:
+        raise HTTPException(413, "Annotated copy must be between 1 byte and 20 MB")
+    valid = ((suffix == ".pdf" and content.startswith(b"%PDF-")) or
+             (suffix == ".png" and content[:8] == bytes([137,80,78,71,13,10,26,10])) or
+             (suffix in {".jpg", ".jpeg"} and content[:3] == bytes([255,216,255])))
+    if not valid:
+        raise HTTPException(415, "The file content does not match its extension")
+    try:
+        annotation_data = __import__("json").loads(annotations)
+        if not isinstance(annotation_data, dict) or len(annotations) > 500000:
+            raise ValueError()
+    except Exception:
+        raise HTTPException(422, "Invalid annotation data")
+    target = DOCUMENT_DIR / (os.urandom(16).hex() + suffix)
+    target.write_bytes(content)
+    actor = request.state.user.get("sub", "staff")
+    item = ResultDocument(result_id=result_id, filename="ANNOTATED-" + Path(source.filename).stem + suffix,
+        content_type=allowed[suffix], storage_path=str(target), uploaded_by=actor,
+        parent_document_id=source.id, document_kind="ANNOTATED", annotation_data=annotation_data)
+    db.add(item)
+    audit(db, actor, "RESULT_DOCUMENT_ANNOTATED_COPY_SAVED", result_id,
+          {"source_document_id": source.id, "annotated_document_id": item.id, "filename": item.filename})
+    db.commit()
+    db.refresh(item)
+    return {"id": item.id, "filename": item.filename, "content_type": item.content_type,
+            "uploaded_by": item.uploaded_by, "uploaded_at": item.uploaded_at,
+            "parent_document_id": item.parent_document_id, "document_kind": item.document_kind}
 
 @app.patch("/api/v1/results/{result_id}/documents/{document_id}/notes")
 def update_result_document_notes(result_id: int, document_id: int, payload: dict,

@@ -8,9 +8,9 @@ type DocumentItem = {id:number;filename:string;content_type:string;uploaded_by:s
 type Detail = { result:Result; review?:{reviewer:string;comments?:string;reviewed_values:Record<string,Measurement>;reviewed_at:string}|null; audit:Array<{actor:string;action:string;details:Record<string,unknown>;created_at:string}>; documents?:DocumentItem[] }
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8900'
 const escapeHtml = (value:unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!))
-async function printBrandedReport(resultId:number){
+async function printBrandedReport(resultId:number,onError:(message:string)=>void){
  const win=window.open('about:blank','_blank')
- if(!win){setError('Allow pop-ups to print the branded report');return}
+ if(!win){onError('Allow pop-ups to print the branded report');return}
  try{
   const response=await fetch(API+'/api/v1/results/'+resultId+'/branded-report',{headers:{Authorization:'Bearer '+localStorage.getItem('cbc_token')}})
   if(!response.ok){const body=await response.json();throw new Error(body.detail||'Branded report generation failed')}
@@ -19,7 +19,7 @@ async function printBrandedReport(resultId:number){
   win.location.href=url
   setTimeout(()=>{try{win.focus();win.print()}catch{}},1500)
   setTimeout(()=>URL.revokeObjectURL(url),60000)
- }catch(e){win.close();setError((e as Error).message)}
+ }catch(e){win.close();onError((e as Error).message)}
 }
 async function request(path:string, init:RequestInit={}) {
  const headers=new Headers(init.headers||{}); const token=localStorage.getItem('cbc_token'); if(token) headers.set('Authorization','Bearer '+token)
@@ -91,7 +91,7 @@ export default function App(){
    <div className="guide-warning"><b>Important safety notes</b><ul><li><b>REVIEWED</b> means a review was saved; it does not mean the result has been formally authorized or released to a patient.</li><li>Original analyzer measurements are preserved separately from reviewed values.</li><li>Final CBC PDFs include patient name, age and address plus the saved clinic branding. Clinic branding is configured once in the Clinic branding tab and reused for subsequent reports.</li><li>PDFs, DOC/DOCX files and images can be annotated into a separate copy. Word documents are converted to PDF for annotation. Export PDF and Print are available. The original source file is retained unchanged; annotations do not change existing report text or analyzer values.</li><li>Demo records are fictional training data only. Never use them for patient care.</li><li>The HumaCount 30TS native export/protocol connection is not yet validated in this development build.</li></ul></div>
    <p className="muted">For account access, missing buttons, upload errors or results that do not arrive, contact your CBC Connect administrator or laboratory supervisor.</p>
   </section>}
-  {selected&&<div className="overlay" onClick={()=>setSelected(null)}><section className="drawer" onClick={e=>e.stopPropagation()}><div className="drawer-head"><div><p className="eyebrow">RESULT DETAIL</p><h2>{selected.result.sample_id}</h2><p className="muted">{selected.result.analyzer} · {selected.result.status.replace('_',' ')}</p></div><div className="drawer-actions">{selected.review&&<><button onClick={()=>downloadBrandedReport(selected.result.id)}>Generate branded final PDF</button><button className="secondary" onClick={()=>printBrandedReport(selected.result.id)}>Print branded final PDF</button></>}<button className="secondary" onClick={()=>setSelected(null)}>Close</button></div></div>
+  {selected&&<div className="overlay" onClick={()=>setSelected(null)}><section className="drawer" onClick={e=>e.stopPropagation()}><div className="drawer-head"><div><p className="eyebrow">RESULT DETAIL</p><h2>{selected.result.sample_id}</h2><p className="muted">{selected.result.analyzer} · {selected.result.status.replace('_',' ')}</p></div><div className="drawer-actions">{selected.review&&<><button onClick={()=>downloadBrandedReport(selected.result.id)}>Generate branded final PDF</button><button className="secondary" onClick={()=>printBrandedReport(selected.result.id,setError)}>Print branded final PDF</button></>}<button className="secondary" onClick={()=>setSelected(null)}>Close</button></div></div>
    <div className="meta-grid"><div><small>Patient reference</small><b>{selected.result.patient_reference||'—'}</b></div><div><small>Device ID</small><b>{selected.result.device_id}</b></div><div><small>Received</small><b>{new Date(selected.result.received_at).toLocaleString()}</b></div></div>
    <section className="patient-details-panel"><div className="panel-head"><div><h3>Patient details for final report</h3><p className="muted">Enter the verified patient identity. These details are included in the branded PDF.</p></div></div><div className="patient-details-grid"><label>Patient name<input value={patient.patient_name} onChange={e=>setPatient({...patient,patient_name:e.target.value})} maxLength={200}/></label><label>Age<input value={patient.patient_age} onChange={e=>setPatient({...patient,patient_age:e.target.value})} placeholder="e.g. 34 years or 8 months" maxLength={80}/></label><label className="patient-address">Address<textarea rows={2} value={patient.patient_address} onChange={e=>setPatient({...patient,patient_address:e.target.value})} maxLength={1000}/></label></div><button type="button" className="secondary" onClick={savePatientDetails}>Save patient details</button></section>
    <h3>Analyzer measurements</h3><div className="table-wrap"><table><thead><tr><th>Analyte</th><th>Original value</th><th>Unit</th><th>Flag</th></tr></thead><tbody>{Object.entries(selected.result.values).map(([k,v])=><tr key={k}><td>{k}</td><td>{v.value}</td><td>{v.unit||'—'}</td><td>{v.flag||'—'}</td></tr>)}</tbody></table></div>

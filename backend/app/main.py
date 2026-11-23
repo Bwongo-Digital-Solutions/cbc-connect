@@ -21,7 +21,7 @@ import subprocess, tempfile, shutil, zipfile
 app = FastAPI(title="CBC Connect API", version="0.2.0")
 origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(CORSMiddleware, allow_origins=[x.strip() for x in origins],
-                   allow_credentials=False, allow_methods=["GET", "POST", "PATCH"],
+                   allow_credentials=False, allow_methods=["GET", "POST", "PATCH", "PUT"],
                    allow_headers=["Content-Type", "Authorization", "X-Device-Id", "X-Analyzer-Key"])
 TEMPLATE_DIR = Path(os.getenv("TEMPLATE_DIR", "./data/templates"))
 TEMPLATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -66,7 +66,7 @@ async def require_api_auth(request: Request, call_next):
     role = user.get("role")
     if path.endswith("/review") and role not in {"TECHNICIAN","SUPERVISOR","ADMIN","CLINICIAN"}:
         return JSONResponse(status_code=403, content={"detail":"Insufficient role"})
-    if (request.method != "GET" and ("/analytes" in path or "/templates" in path) and role not in {"SUPERVISOR","ADMIN"}):
+    if (request.method != "GET" and ("/analytes" in path or "/templates" in path or path.startswith("/api/v1/clinic-profile")) and role not in {"SUPERVISOR","ADMIN"}):
         return JSONResponse(status_code=403, content={"detail":"Supervisor or administrator role required"})
     request.state.user = user
     return await call_next(request)

@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from .db import Base, engine, get_db
-from .models import CBCResult, ResultReview, AuditEvent, AnalyteConfig, ReportTemplate, UserAccount, ReferenceInterval, ResultDocument
+from .models import CBCResult, ResultReview, AuditEvent, AnalyteConfig, ReportTemplate, UserAccount, ReferenceInterval, ResultDocument, ClinicProfile
 from .schemas import AnalyzerPayload, ResultOut, ManualSample, ReviewIn, AnalyteIn
 from .security import authenticate, create_access_token, hash_password, decode_access_token
 from fastapi import Request
@@ -124,6 +124,7 @@ def result_detail(result_id: int, db: Session = Depends(get_db)):
 @app.post("/api/v1/samples", response_model=ResultOut, status_code=201)
 def create_sample(payload: ManualSample, request: Request, db: Session = Depends(get_db)):
     result = CBCResult(sample_id=payload.sample_id, patient_reference=payload.patient_reference,
+        patient_name=payload.patient_name, patient_age=payload.patient_age, patient_address=payload.patient_address,
         analyzer="MANUAL", device_id="manual-entry", observed_at=payload.collected_at,
         status="PENDING_REVIEW", values={})
     db.add(result)
@@ -386,6 +387,241 @@ def create_synthetic_demo_document(result_id: int, request: Request, db: Session
     db.commit()
     db.refresh(item)
     return {"created": True, "document_id": item.id, "filename": item.filename}
+
+
+
+
+@app.patch("/api/v1/results/{result_id}/patient")
+def update_patient_details(result_id: int, payload: dict, request: Request, db: Session = Depends(get_db)):
+    result = db.get(CBCResult, result_id)
+    if not result:
+        raise HTTPException(404, "Result not found")
+    fields = {"patient_name": 200, "patient_age": 80, "patient_address": 1000}
+    for field, limit in fields.items():
+        value = payload.get(field)
+        value = str(value).strip() if value is not None else ""
+        if len(value) > limit:
+            raise HTTPException(422, f"{field.replace('_', ' ').title()} must be {limit} characters or fewer")
+        setattr(result, field, value or None)
+    actor = request.state.user.get("sub", "staff")
+    audit(db, actor, "PATIENT_DETAILS_UPDATED", result_id,
+          {"fields_updated": [key for key in fields if key in payload]})
+    db.commit()
+    return {"patient_name": result.patient_name, "patient_age": result.patient_age,
+            "patient_address": result.patient_address}
+
+
+def _clinic_profile_dict(profile: ClinicProfile):
+    return {"clinic_name": profile.clinic_name, "address": profile.address, "phone": profile.phone,
+            "email": profile.email, "theme_color": profile.theme_color, "header_text": profile.header_text,
+            "footer_text": profile.footer_text, "has_logo": bool(profile.logo_path),
+            "updated_by": profile.updated_by, "updated_at": profile.updated_at}
+
+
+def _get_or_create_clinic_profile(db: Session):
+    profile = db.get(ClinicProfile, 1)
+    if profile is None:
+        profile = ClinicProfile(id=1, clinic_name="Clinic", address="",
+            phone="0775-872-454, 0751-319-201", email="", theme_color="#0879D9",
+            header_text="", footer_text="Powered by ClinicHIS",
+            updated_at=datetime.now(timezone.utc))
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+    return profile
+
+
+@app.get("/api/v1/clinic-profile")
+def get_clinic_profile(db: Session = Depends(get_db)):
+    return _clinic_profile_dict(_get_or_create_clinic_profile(db))
+
+
+@app.put("/api/v1/clinic-profile")
+def save_clinic_profile(payload: dict, request: Request, db: Session = Depends(get_db)):
+    profile = _get_or_create_clinic_profile(db)
+    limits = {"clinic_name": 200, "address": 1000, "phone": 120, "email": 160,
+              "header_text": 1000, "footer_text": 500}
+    for field, limit in limits.items():
+        if field in payload:
+            value = str(payload.get(field) or "").strip()
+            if len(value) > limit:
+                raise HTTPException(422, f"{field.replace('_', ' ').title()} must be {limit} characters or fewer")
+            setattr(profile, field, value)
+    if "theme_color" in payload:
+        color = str(payload.get("theme_color") or "").strip()
+        import re
+        if not re.fullmatch(r"#[0-9A-Fa-f]{6}", color):
+            raise HTTPException(422, "Theme colour must be a six-digit hex colour such as #0879D9")
+        profile.theme_color = color.upper()
+    profile.updated_by = request.state.user.get("sub", "staff")
+    profile.updated_at = datetime.now(timezone.utc)
+    audit(db, profile.updated_by, "CLINIC_DOCUMENT_BRANDING_UPDATED",
+          details={"clinic_name": profile.clinic_name})
+    db.commit()
+    db.refresh(profile)
+    return _clinic_profile_dict(profile)
+
+
+@app.post("/api/v1/clinic-profile/logo")
+async def upload_clinic_logo(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    suffix = Path(file.filename or "").suffix.lower()
+    mime = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+    if suffix not in mime:
+        raise HTTPException(415, "Clinic logo must be a PNG or JPG image")
+    content = await file.read()
+    if not content or len(content) > 2 * 1024 * 1024:
+        raise HTTPException(413, "Logo must be between 1 byte and 2 MB")
+    valid = ((suffix == ".png" and content[:8] == bytes([137,80,78,71,13,10,26,10])) or
+             (suffix in {".jpg", ".jpeg"} and content[:3] == bytes([255,216,255])))
+    if not valid:
+        raise HTTPException(415, "The logo content does not match its file extension")
+    profile = _get_or_create_clinic_profile(db)
+    target = DOCUMENT_DIR / ("clinic-logo-" + os.urandom(12).hex() + suffix)
+    target.write_bytes(content)
+    old_path = profile.logo_path
+    profile.logo_path = str(target)
+    profile.updated_by = request.state.user.get("sub", "staff")
+    profile.updated_at = datetime.now(timezone.utc)
+    audit(db, profile.updated_by, "CLINIC_LOGO_UPDATED")
+    db.commit()
+    if old_path and Path(old_path).name.startswith("clinic-logo-"):
+        Path(old_path).unlink(missing_ok=True)
+    return {"uploaded": True, "has_logo": True}
+
+
+@app.get("/api/v1/clinic-profile/logo")
+def get_clinic_logo(db: Session = Depends(get_db)):
+    profile = _get_or_create_clinic_profile(db)
+    if not profile.logo_path or not Path(profile.logo_path).is_file():
+        raise HTTPException(404, "No clinic logo has been uploaded")
+    suffix = Path(profile.logo_path).suffix.lower()
+    return FileResponse(profile.logo_path, media_type="image/png" if suffix == ".png" else "image/jpeg")
+
+
+@app.get("/api/v1/results/{result_id}/branded-report")
+def generate_branded_report(result_id: int, db: Session = Depends(get_db)):
+    result = db.get(CBCResult, result_id)
+    if not result or result.status != "REVIEWED":
+        raise HTTPException(409, "Only reviewed results can be rendered")
+    review = db.query(ResultReview).filter_by(result_id=result_id).first()
+    if not review:
+        raise HTTPException(409, "A recorded review is required before generating the final report")
+
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from xml.sax.saxutils import escape
+
+    profile = _get_or_create_clinic_profile(db)
+    try:
+        theme = colors.HexColor(profile.theme_color or "#0879D9")
+    except Exception:
+        theme = colors.HexColor("#0879D9")
+    work = Path(tempfile.mkdtemp(prefix="cbc-branded-report-"))
+    pdf_path = work / f"CBC-{result.id}-final.pdf"
+    phone_text = profile.phone or "0775-872-454, 0751-319-201"
+    clinic_name = escape(profile.clinic_name or "Clinic")
+    clinic_address = escape(profile.address or "")
+    header_text = escape(profile.header_text or "")
+    footer_text = escape(profile.footer_text or "Powered by ClinicHIS")
+    logo_path = profile.logo_path if profile.logo_path and Path(profile.logo_path).is_file() else None
+
+    def draw_page(canvas, document):
+        canvas.saveState()
+        width, height = A4
+        canvas.setFillColor(theme)
+        canvas.rect(0, height - 7 * mm, width, 7 * mm, fill=1, stroke=0)
+        left = 24 * mm
+        if logo_path:
+            try:
+                from reportlab.lib.utils import ImageReader
+                canvas.drawImage(ImageReader(logo_path), left, height - 31 * mm,
+                                 width=22 * mm, height=20 * mm, preserveAspectRatio=True,
+                                 anchor="sw", mask="auto")
+                left += 27 * mm
+            except Exception:
+                pass
+        canvas.setFillColor(colors.HexColor("#17324D"))
+        canvas.setFont("Helvetica-Bold", 14)
+        canvas.drawString(left, height - 17 * mm, profile.clinic_name or "Clinic")
+        canvas.setFont("Helvetica", 8)
+        y = height - 22 * mm
+        for line in (profile.address or "").splitlines()[:2]:
+            canvas.drawString(left, y, line[:130])
+            y -= 4 * mm
+        if profile.email:
+            canvas.drawString(left, y, profile.email[:130])
+        if header_text:
+            canvas.setFont("Helvetica-Oblique", 8)
+            canvas.drawRightString(width - 20 * mm, height - 17 * mm, header_text[:100])
+        canvas.setStrokeColor(theme)
+        canvas.setLineWidth(1.2)
+        canvas.line(20 * mm, height - 36 * mm, width - 20 * mm, height - 36 * mm)
+        canvas.setStrokeColor(colors.HexColor("#D8E1EA"))
+        canvas.line(20 * mm, 17 * mm, width - 20 * mm, 17 * mm)
+        canvas.setFillColor(colors.HexColor("#536579"))
+        canvas.setFont("Helvetica", 8)
+        canvas.drawString(20 * mm, 11 * mm, f"{footer_text}  |  {phone_text}"[:150])
+        canvas.drawRightString(width - 20 * mm, 11 * mm, f"Page {document.page}")
+        canvas.restoreState()
+
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="ClinicTitle", parent=styles["Title"], textColor=theme,
+                              fontName="Helvetica-Bold", fontSize=17, alignment=TA_LEFT, spaceAfter=3))
+    styles.add(ParagraphStyle(name="SectionHeading", parent=styles["Heading2"], textColor=theme,
+                              fontSize=11, spaceBefore=12, spaceAfter=6))
+    styles.add(ParagraphStyle(name="SmallMuted", parent=styles["BodyText"], textColor=colors.HexColor("#536579"),
+                              fontSize=8, leading=11))
+    doc = SimpleDocTemplate(str(pdf_path), pagesize=A4, rightMargin=20*mm, leftMargin=20*mm,
+                            topMargin=43*mm, bottomMargin=24*mm, title=f"CBC Report {result.sample_id}",
+                            author=profile.clinic_name or "Clinic")
+    story = [Paragraph("COMPLETE BLOOD COUNT REPORT", styles["ClinicTitle"]),
+             Paragraph("Patient and specimen information", styles["SectionHeading"])]
+    patient_rows = [
+        [Paragraph("<b>Patient name</b>", styles["BodyText"]), escape(result.patient_name or "Not recorded"),
+         Paragraph("<b>Age</b>", styles["BodyText"]), escape(result.patient_age or "Not recorded")],
+        [Paragraph("<b>Address</b>", styles["BodyText"]), Paragraph(escape(result.patient_address or "Not recorded"), styles["BodyText"]),
+         Paragraph("<b>Patient reference</b>", styles["BodyText"]), escape(result.patient_reference or "—")],
+        [Paragraph("<b>Sample ID</b>", styles["BodyText"]), escape(result.sample_id),
+         Paragraph("<b>Analyzer</b>", styles["BodyText"]), escape(result.analyzer)],
+    ]
+    patient_table = Table(patient_rows, colWidths=[28*mm, 57*mm, 30*mm, 55*mm])
+    patient_table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),colors.HexColor("#F4F7FA")),
+        ("GRID",(0,0),(-1,-1),0.35,colors.HexColor("#D8E1EA")),("VALIGN",(0,0),(-1,-1),"TOP"),
+        ("LEFTPADDING",(0,0),(-1,-1),7),("RIGHTPADDING",(0,0),(-1,-1),7),
+        ("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7)]))
+    story.extend([patient_table, Paragraph("Reviewed CBC measurements", styles["SectionHeading"])])
+    rows = [[Paragraph("<b>Analyte</b>", styles["BodyText"]), Paragraph("<b>Result</b>", styles["BodyText"]),
+             Paragraph("<b>Unit</b>", styles["BodyText"]), Paragraph("<b>Flag</b>", styles["BodyText"])]]
+    for code, value in review.reviewed_values.items():
+        rows.append([escape(str(code)), escape(str(value.get("value", ""))),
+                     escape(str(value.get("unit") or "")), escape(str(value.get("flag") or ""))])
+    result_table = Table(rows, repeatRows=1, colWidths=[65*mm, 35*mm, 35*mm, 35*mm])
+    result_table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),theme),
+        ("TEXTCOLOR",(0,0),(-1,0),colors.white),("GRID",(0,0),(-1,-1),0.35,colors.HexColor("#D8E1EA")),
+        ("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F7F9FC")]),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),7),
+        ("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7)]))
+    story.extend([result_table, Paragraph("Review information", styles["SectionHeading"]),
+        Paragraph(f"<b>Reviewed by:</b> {escape(review.reviewer)} &nbsp;&nbsp; <b>Reviewed:</b> {escape(review.reviewed_at.strftime('%Y-%m-%d %H:%M'))}", styles["BodyText"]),
+        Spacer(1, 5), Paragraph(f"<b>Review comments:</b> {escape(review.comments or 'None')}", styles["BodyText"]),
+        Spacer(1, 12), HRFlowable(width="100%", color=theme, thickness=0.8),
+        Paragraph("This report records the values reviewed in CBC Connect. It must be checked and authorized under the clinic's approved laboratory procedures before clinical release.", styles["SmallMuted"])])
+    try:
+        doc.build(story, onFirstPage=draw_page, onLaterPages=draw_page)
+        actor = "report-service"
+        audit(db, actor, "BRANDED_FINAL_REPORT_GENERATED", result_id,
+              {"clinic_name": profile.clinic_name, "theme_color": profile.theme_color})
+        db.commit()
+        return FileResponse(str(pdf_path), media_type="application/pdf",
+                            filename=f"CBC-{result.id}-final.pdf",
+                            background=BackgroundTask(shutil.rmtree, str(work), ignore_errors=True))
+    except Exception as exc:
+        shutil.rmtree(work, ignore_errors=True)
+        raise HTTPException(500, "Branded PDF generation failed") from exc
 
 
 @app.get("/api/v1/results/{result_id}/audit")

@@ -41,6 +41,9 @@ class ResultOut(BaseModel):
     id: int
     sample_id: str
     patient_reference: str | None
+    patient_name: str | None = None
+    patient_age: str | None = None
+    patient_address: str | None = None
     analyzer: str
     device_id: str
     observed_at: datetime | None

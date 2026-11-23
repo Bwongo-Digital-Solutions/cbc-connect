@@ -9,6 +9,9 @@ from .models import CBCResult, ResultReview, AuditEvent, AnalyteConfig, ReportTe
 from .schemas import AnalyzerPayload, ResultOut, ManualSample, ReviewIn, AnalyteIn
 from .security import authenticate, create_access_token, get_current_user, hash_password, decode_access_token
 from fastapi import Request
+from fastapi.responses import FileResponse
+from docxtpl import DocxTemplate
+import subprocess, tempfile, shutil
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI(title="CBC Connect API", version="0.2.0")
@@ -189,6 +192,26 @@ def save_analyte(payload: AnalyteIn, db: Session = Depends(get_db)):
     db.refresh(item)
     return item
 
+@app.post("/api/v1/users", status_code=201)
+def create_user(payload: dict, request: Request, db: Session = Depends(get_db)):
+    actor = getattr(request.state, "user", {})
+    if actor.get("role") != "ADMIN":
+        raise HTTPException(403, "Administrator role required")
+    username = str(payload.get("username", "")).strip()
+    password = str(payload.get("password", ""))
+    role = str(payload.get("role", "TECHNICIAN")).upper()
+    if not username or role not in {"TECHNICIAN","SUPERVISOR","ADMIN"}:
+        raise HTTPException(422, "Provide a username and a valid role")
+    if len(password) < 12:
+        raise HTTPException(422, "Password must be at least 12 characters")
+    if db.query(UserAccount).filter_by(username=username).first():
+        raise HTTPException(409, "Username already exists")
+    item = UserAccount(username=username, password_hash=hash_password(password), role=role, active=True)
+    db.add(item)
+    audit(db, actor.get("sub", "admin"), "USER_CREATED", details={"username":username,"role":role})
+    db.commit()
+    return {"username":username,"role":role}
+
 @app.get("/api/v1/templates")
 def list_templates(db: Session = Depends(get_db)):
     return db.query(ReportTemplate).order_by(ReportTemplate.uploaded_at.desc()).all()
@@ -213,3 +236,40 @@ async def upload_template(name: str = Form(...), uploaded_by: str = Form(...),
     db.commit()
     db.refresh(item)
     return {"id": item.id, "name": item.name, "filename": item.filename, "uploaded_at": item.uploaded_at}
+
+
+@app.get("/api/v1/results/{result_id}/report")
+def generate_report(result_id: int, template_id: int, db: Session = Depends(get_db)):
+    result = db.get(CBCResult, result_id)
+    if not result or result.status != "REVIEWED":
+        raise HTTPException(409, "Only reviewed results can be rendered")
+    review = db.query(ResultReview).filter_by(result_id=result_id).first()
+    template = db.get(ReportTemplate, template_id)
+    if not review or not template or not template.filename.lower().endswith(".docx"):
+        raise HTTPException(422, "A reviewed result and DOCX template are required")
+    if not Path(template.storage_path).is_file():
+        raise HTTPException(404, "Template file is unavailable")
+    work = Path(tempfile.mkdtemp(prefix="cbc-report-"))
+    try:
+        doc = DocxTemplate(template.storage_path)
+        context = {"sample_id":result.sample_id,"patient_reference":result.patient_reference or "",
+            "analyzer":result.analyzer,"reviewer":review.reviewer,"comments":review.comments or "",
+            "received_at":result.received_at.isoformat(),"reviewed_at":review.reviewed_at.isoformat(),
+            "results":[{"code":k,"value":v.get("value"),"unit":v.get("unit") or "",
+                       "flag":v.get("flag") or ""} for k,v in review.reviewed_values.items()]}
+        doc.render(context)
+        docx_path = work / f"CBC-{result.sample_id}.docx"
+        doc.save(docx_path)
+        completed = subprocess.run(["libreoffice","--headless","--convert-to","pdf","--outdir",str(work),str(docx_path)],
+                                   capture_output=True, timeout=60)
+        pdf_path = work / f"CBC-{result.sample_id}.pdf"
+        if completed.returncode != 0 or not pdf_path.exists():
+            raise HTTPException(500, "PDF conversion failed")
+        audit(db, "report-service", "REPORT_GENERATED", result_id, {"template_id":template_id})
+        db.commit()
+        return FileResponse(pdf_path, media_type="application/pdf", filename=f"CBC-{result.sample_id}.pdf",
+                            background=None)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, "Report generation failed") from exc

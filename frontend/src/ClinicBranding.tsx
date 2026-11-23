@@ -51,7 +51,7 @@ export default function ClinicBranding({api,token}:Props){
   return <label className={wide?'branding-wide':''}>{label}
    {name==='address'||name==='header_text'||name==='footer_text'
     ?<textarea rows={name==='address'?3:2} value={String(profile[name]||'')} onChange={e=>setProfile({...profile,[name]:e.target.value})}/>
-    :<input value={String(profile[name]||'')} type={name==='theme_color'?'text':'text'} onChange={e=>setProfile({...profile,[name]:e.target.value})}/>}
+    :<input value={String(profile[name]||'')} type={name==='theme_color'?'color':'text'} onChange={e=>setProfile({...profile,[name]:e.target.value})}/>}
   </label>
  }
  return <section className="panel clinic-branding">

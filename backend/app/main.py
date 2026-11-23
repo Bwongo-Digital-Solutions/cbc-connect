@@ -928,6 +928,36 @@ def generate_report(result_id: int, template_id: int, db: Session = Depends(get_
         pdf_path = work / f"CBC-{result.id}.pdf"
         if completed.returncode != 0 or not pdf_path.exists():
             raise HTTPException(500, "PDF conversion failed")
+        if profile.logo_path and Path(profile.logo_path).is_file() and profile.logo_display_mode in {"watermark", "background", "both"}:
+            from io import BytesIO
+            from reportlab.pdfgen import canvas as pdf_canvas
+            from reportlab.lib.utils import ImageReader
+            from pypdf import PdfReader, PdfWriter
+            source_pdf = PdfReader(str(pdf_path))
+            writer = PdfWriter()
+            for page in source_pdf.pages:
+                page_width = float(page.mediabox.width)
+                page_height = float(page.mediabox.height)
+                overlay_buffer = BytesIO()
+                overlay_canvas = pdf_canvas.Canvas(overlay_buffer, pagesize=(page_width, page_height))
+                overlay_canvas.saveState()
+                overlay_canvas.setFillAlpha(float(profile.logo_opacity or 0.10))
+                if profile.logo_display_mode == "background":
+                    overlay_canvas.drawImage(ImageReader(profile.logo_path), 0, 0, width=page_width,
+                                             height=page_height, preserveAspectRatio=False, mask="auto")
+                else:
+                    mark_w = min(page_width * 0.52, 300)
+                    mark_h = min(page_height * 0.52, 300)
+                    overlay_canvas.drawImage(ImageReader(profile.logo_path), (page_width-mark_w)/2,
+                                             (page_height-mark_h)/2, width=mark_w, height=mark_h,
+                                             preserveAspectRatio=True, anchor="c", mask="auto")
+                overlay_canvas.restoreState()
+                overlay_canvas.save()
+                overlay_buffer.seek(0)
+                page.merge_page(PdfReader(overlay_buffer).pages[0], over=False)
+                writer.add_page(page)
+            with pdf_path.open("wb") as output:
+                writer.write(output)
         audit(db, "report-service", "REPORT_GENERATED", result_id, {"template_id":template_id})
         db.commit()
         return FileResponse(pdf_path, media_type="application/pdf", filename=f"CBC-{result.id}.pdf",

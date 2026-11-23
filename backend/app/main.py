@@ -433,7 +433,7 @@ def update_patient_details(result_id: int, payload: dict, request: Request, db: 
 def _clinic_profile_dict(profile: ClinicProfile):
     return {"clinic_name": profile.clinic_name, "address": profile.address, "phone": profile.phone,
             "email": profile.email, "theme_color": profile.theme_color, "header_text": profile.header_text,
-            "footer_text": profile.footer_text, "has_logo": bool(profile.logo_path),
+            "footer_text": profile.footer_text, "logo_display_mode": profile.logo_display_mode,\n            "logo_opacity": profile.logo_opacity, "has_logo": bool(profile.logo_path),
             "updated_by": profile.updated_by, "updated_at": profile.updated_at}
 
 
@@ -466,6 +466,19 @@ def save_clinic_profile(payload: dict, request: Request, db: Session = Depends(g
             if len(value) > limit:
                 raise HTTPException(422, f"{field.replace('_', ' ').title()} must be {limit} characters or fewer")
             setattr(profile, field, value)
+    if "logo_display_mode" in payload:
+        mode = str(payload.get("logo_display_mode") or "header").strip().lower()
+        if mode not in {"header", "watermark", "background", "both"}:
+            raise HTTPException(422, "Logo display mode must be header, watermark, background or both")
+        profile.logo_display_mode = mode
+    if "logo_opacity" in payload:
+        try:
+            opacity = float(payload.get("logo_opacity"))
+        except (TypeError, ValueError):
+            raise HTTPException(422, "Logo opacity must be a number between 0.03 and 0.30")
+        if not 0.03 <= opacity <= 0.30:
+            raise HTTPException(422, "Logo opacity must be between 0.03 and 0.30")
+        profile.logo_opacity = opacity
     if "theme_color" in payload:
         color = str(payload.get("theme_color") or "").strip()
         import re
@@ -558,10 +571,27 @@ def generate_branded_report(result_id: int, db: Session = Depends(get_db)):
     def draw_page(canvas, document):
         canvas.saveState()
         width, height = A4
+        display_mode = profile.logo_display_mode or "header"
+        if logo_path and display_mode in {"watermark", "background", "both"}:
+            try:
+                from reportlab.lib.utils import ImageReader
+                canvas.saveState()
+                canvas.setFillAlpha(float(profile.logo_opacity or 0.10))
+                if display_mode == "background":
+                    canvas.drawImage(ImageReader(logo_path), 0, 0, width=width, height=height,
+                                     preserveAspectRatio=False, mask="auto")
+                else:
+                    mark_w, mark_h = 105 * mm, 105 * mm
+                    canvas.drawImage(ImageReader(logo_path), (width-mark_w)/2, (height-mark_h)/2,
+                                     width=mark_w, height=mark_h, preserveAspectRatio=True,
+                                     anchor="c", mask="auto")
+                canvas.restoreState()
+            except Exception:
+                canvas.restoreState()
         canvas.setFillColor(theme)
         canvas.rect(0, height - 7 * mm, width, 7 * mm, fill=1, stroke=0)
         left = 24 * mm
-        if logo_path:
+        if logo_path and display_mode in {"header", "both"}:
             try:
                 from reportlab.lib.utils import ImageReader
                 canvas.drawImage(ImageReader(logo_path), left, height - 31 * mm,

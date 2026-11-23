@@ -216,7 +216,8 @@ def create_user(payload: dict, request: Request, db: Session = Depends(get_db)):
 
 @app.get("/api/v1/templates")
 def list_templates(db: Session = Depends(get_db)):
-    return db.query(ReportTemplate).order_by(ReportTemplate.uploaded_at.desc()).all()
+    rows = db.query(ReportTemplate).order_by(ReportTemplate.uploaded_at.desc()).all()
+    return [{"id":r.id,"name":r.name,"filename":r.filename,"uploaded_by":r.uploaded_by,"uploaded_at":r.uploaded_at} for r in rows]
 
 @app.post("/api/v1/templates", status_code=201)
 async def upload_template(request: Request, name: str = Form(...), uploaded_by: str = Form(...),

@@ -7,6 +7,7 @@ CBC Connect is an independent CBC analyzer results receiving and review workspac
 - Manual sample registration using the laboratory accession/barcode as the sample ID.
 - Protocol-neutral JSON ingestion endpoint for normalized analyzer payloads.
 - Detailed result view showing original analyzer values.
+- Upload and view PDF/PNG/JPG source reports beside each CBC result, with editable clinician/reviewer notes saved to the audit history.
 - Review submission stores reviewed values separately; it never overwrites the original analyzer measurements.
 - Pending results move to `REVIEWED` only after a review record is submitted.
 - Per-result audit events for registration, ingestion, review and template upload.
@@ -26,12 +27,12 @@ PostgreSQL (host tools only): localhost:5434 (container port 5432; bound to loop
 
 ## Authentication and access
 - The initial administrator is created from CBC_BOOTSTRAP_ADMIN and CBC_BOOTSTRAP_PASSWORD on first startup.
-- Sign in through the dashboard. Additional staff accounts are created by an administrator with POST /api/v1/users and one of TECHNICIAN, SUPERVISOR or ADMIN roles.
+- Sign in through the dashboard. Additional staff accounts are created by an administrator with POST /api/v1/users and one of TECHNICIAN, CLINICIAN, SUPERVISOR or ADMIN roles.
 - API sessions use expiring JWT bearer tokens. Analyzer ingestion uses the separate X-Analyzer-Key header.
 - Configure HTTPS, secure secrets and backups before using any network-accessible deployment.
 
 ## Staff user manual
-See [Lab technician and clinician user manual](docs/lab-technician-clinician-user-manual.md) for sign-in, sample registration, result review, reporting, supervisor tasks, troubleshooting and safe-use guidance.
+See [the plain-language lab technician and clinician user guide](docs/lab-technician-clinician-user-manual.md). It explains how to find results, open uploaded CBC source reports, add notes, review measurements and use demo records.
 
 ## Report templates
 If a clinic has no DOCX template, use **Report templates → Generate sample template** to create an editable starter DOCX. The action reuses an existing DOCX template rather than creating duplicates. Customize and approve the starter under local laboratory procedures before use.

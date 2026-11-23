@@ -400,18 +400,33 @@ def update_patient_details(result_id: int, payload: dict, request: Request, db: 
     result = db.get(CBCResult, result_id)
     if not result:
         raise HTTPException(404, "Result not found")
-    fields = {"patient_name": 200, "patient_age": 80, "patient_address": 1000}
+    fields = {"sample_id": 120, "patient_reference": 120, "patient_name": 200,
+              "patient_age": 80, "patient_address": 1000}
+    updated = []
     for field, limit in fields.items():
-        value = payload.get(field)
-        value = str(value).strip() if value is not None else ""
+        if field not in payload:
+            continue
+        value = str(payload.get(field) or "").strip()
         if len(value) > limit:
             raise HTTPException(422, f"{field.replace('_', ' ').title()} must be {limit} characters or fewer")
+        if field == "sample_id":
+            if not value:
+                raise HTTPException(422, "Sample / accession ID cannot be empty")
+            duplicate = db.query(CBCResult).filter(
+                CBCResult.sample_id == value,
+                CBCResult.device_id == result.device_id,
+                CBCResult.id != result_id
+            ).first()
+            if duplicate:
+                raise HTTPException(409, "That sample ID already exists for this analyzer device")
         setattr(result, field, value or None)
+        updated.append(field)
     actor = request.state.user.get("sub", "staff")
-    audit(db, actor, "PATIENT_DETAILS_UPDATED", result_id,
-          {"fields_updated": [key for key in fields if key in payload]})
+    audit(db, actor, "PATIENT_AND_SAMPLE_DETAILS_UPDATED", result_id,
+          {"fields_updated": updated})
     db.commit()
-    return {"patient_name": result.patient_name, "patient_age": result.patient_age,
+    return {"sample_id": result.sample_id, "patient_reference": result.patient_reference,
+            "patient_name": result.patient_name, "patient_age": result.patient_age,
             "patient_address": result.patient_address}
 
 

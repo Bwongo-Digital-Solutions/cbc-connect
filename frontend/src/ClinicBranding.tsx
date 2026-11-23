@@ -2,12 +2,12 @@ import { FormEvent, useEffect, useState } from 'react'
 
 type Profile = {
   clinic_name:string; address:string; phone:string; email:string; theme_color:string;
-  header_text:string; footer_text:string; has_logo:boolean
+  header_text:string; footer_text:string; has_logo:boolean; logo_display_mode:'header'|'watermark'|'background'|'both'; logo_opacity:number
 }
 type Props = { api:string; token:string }
 const defaults:Profile = {
   clinic_name:'Clinic', address:'', phone:'0775-872-454, 0751-319-201', email:'',
-  theme_color:'#0879D9', header_text:'', footer_text:'Powered by ClinicHIS', has_logo:false
+  theme_color:'#0879D9', header_text:'', footer_text:'Powered by ClinicHIS', has_logo:false, logo_display_mode:'header', logo_opacity:0.10
 }
 export default function ClinicBranding({api,token}:Props){
  const [profile,setProfile]=useState<Profile>(defaults)
@@ -65,6 +65,15 @@ export default function ClinicBranding({api,token}:Props){
    {field('email','Email address')}
    {field('header_text','Additional header text',true)}
    {field('footer_text','Footer text',true)}
+   <label className="branding-wide">Logo placement on final PDF
+    <select value={profile.logo_display_mode} onChange={e=>setProfile({...profile,logo_display_mode:e.target.value as Profile['logo_display_mode']})}>
+     <option value="header">Header only</option><option value="watermark">Faint centered watermark</option><option value="background">Full-page background image</option><option value="both">Header and watermark</option>
+    </select>
+   </label>
+   {(profile.logo_display_mode==='watermark'||profile.logo_display_mode==='background'||profile.logo_display_mode==='both')&&<label className="branding-wide">Watermark / background opacity ({Math.round(profile.logo_opacity*100)}%)
+    <input type="range" min="0.03" max="0.30" step="0.01" value={profile.logo_opacity} onChange={e=>setProfile({...profile,logo_opacity:Number(e.target.value)})}/>
+    <small className="muted">Keep the logo faint so CBC values and patient details remain easy to read.</small>
+   </label>}
    <label className="branding-wide">Clinic logo (PNG or JPG, maximum 2 MB)
     <input type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" onChange={e=>setLogo(e.target.files?.[0]||null)}/>
    </label>
@@ -76,6 +85,6 @@ export default function ClinicBranding({api,token}:Props){
    </div>
    <div className="branding-wide"><button disabled={busy}>{busy?'Saving…':'Save clinic branding'}</button></div>
   </form>
-  <p className="muted">The standard footer always includes “Powered by ClinicHIS” and the clinic contact numbers. Existing uploaded source documents are never changed.</p>
+  <p className="muted">The clinic logo can appear in the header, as a faint centered watermark, as a full-page background image, or in both header and watermark positions. Opacity is saved with the clinic profile and reused on newly generated final PDFs. Keep watermark/background opacity low to preserve report readability. The standard footer always includes “Powered by ClinicHIS” and the clinic contact numbers. Existing uploaded source documents are never changed.</p>
  </section>
 }

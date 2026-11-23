@@ -3,3 +3,19 @@
 .staff-guide{line-height:1.6}.button-link{display:inline-block;background:#0879d9;color:#fff;text-decoration:none;border-radius:8px;padding:10px 15px;font-size:13px;font-weight:700;white-space:nowrap}.guide-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}.guide-grid article{border:1px solid #e5edf6;border-radius:10px;padding:15px;background:#fbfdff}.guide-grid h3{margin:0 0 7px;color:#24415f}.guide-grid p{font-size:13px;color:#61738a;margin:0}.guide-warning{background:#fff8e8;border:1px solid #f1dfb5;border-radius:10px;padding:16px;margin:18px 0;color:#6d5420;font-size:13px}.guide-warning ul{padding-left:20px;margin-bottom:0}.guide-warning li{margin:6px 0}@media(max-width:760px){.guide-grid{grid-template-columns:1fr}.button-link{white-space:normal}}
 
 .document-buttons{display:flex;gap:7px;flex-wrap:wrap}.annotator-overlay{position:fixed;inset:0;background:#0d2035bb;z-index:20;display:grid;place-items:center;padding:16px}.annotator{width:min(1200px,100%);height:min(94vh,1000px);background:#fff;border-radius:14px;display:flex;flex-direction:column;overflow:hidden}.annotator-head,.annotator-toolbar,.annotator-foot{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid #e5ebf3;flex-wrap:wrap}.annotator-toolbar{justify-content:flex-start}.annotator-toolbar button.active{background:#07599f;color:white}.annotator-stage{flex:1;overflow:auto;background:#e8edf3;display:flex;justify-content:center;align-items:flex-start;padding:18px}.annotator-canvas-wrap{position:relative;max-width:100%;box-shadow:0 2px 14px #10243b22;background:white}.annotator-canvas-wrap canvas{display:block;max-width:100%;height:auto}.annotator-canvas-wrap canvas.annotation-layer{position:absolute;inset:0;touch-action:none;cursor:crosshair}.annotator-foot{border-top:1px solid #e5ebf3;border-bottom:0}.annotator-comments{min-width:200px;flex:1}.annotator-help{font-size:12px;color:#66788f}.annotator-head strong{font-size:14px}@media(max-width:700px){.annotator-overlay{padding:0}.annotator{height:100vh;border-radius:0}.annotator-stage{padding:8px}.annotator-head{align-items:flex-start}}
+
+
+/* Clinic-wide branding editor and patient report details */
+.clinic-branding{max-width:900px}
+.branding-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.branding-form label,.patient-details-grid label{display:grid;gap:6px;font-size:12px;font-weight:700;color:#52647b}
+.branding-wide{grid-column:1/-1}
+.branding-swatch{width:34px;height:34px;border-radius:9px;border:1px solid #dce4ee;flex:0 0 auto}
+.branding-logo-preview{display:flex;align-items:center;gap:12px;color:#62738b;font-size:12px}
+.branding-logo-preview img{max-width:110px;max-height:70px;object-fit:contain;border:1px solid #e5edf6;border-radius:8px;padding:5px;background:white}
+.branding-preview{border-top:5px solid #0879d9;border-left:1px solid #e5edf6;border-right:1px solid #e5edf6;border-bottom:1px solid #e5edf6;border-radius:8px;padding:14px;display:grid;gap:5px}
+.branding-preview span,.branding-preview small{font-size:12px;color:#62738b}
+.patient-details-panel{margin:24px 0;padding:16px;background:#f7faff;border:1px solid #e4edf7;border-radius:12px}
+.patient-details-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.patient-details-grid .patient-address{grid-column:1/-1}
+@media(max-width:760px){.branding-form,.patient-details-grid{grid-template-columns:1fr}.branding-wide,.patient-details-grid .patient-address{grid-column:auto}}

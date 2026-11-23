@@ -294,7 +294,7 @@ def add_reference_interval(payload: dict, request: Request, db: Session = Depend
     item = ReferenceInterval(analyte_code=code, population=population,
         age_min_days=payload.get("age_min_days"), age_max_days=payload.get("age_max_days"),
         sex=str(payload.get("sex", "ALL")).upper(), lower_value=float(lower), upper_value=float(upper),
-        unit=unit, source=source, status="DRAFT")
+        unit=unit, source=source, created_by=actor, status="DRAFT")
     db.add(item)
     audit(db, actor, "REFERENCE_INTERVAL_DRAFTED", details={"analyte_code":code,"source":source})
     db.commit()
@@ -309,6 +309,8 @@ def verify_reference_interval(interval_id: int, payload: dict, request: Request,
     item = db.get(ReferenceInterval, interval_id)
     if not item:
         raise HTTPException(404, "Reference interval not found")
+    if item.created_by == actor:
+        raise HTTPException(409, "A different authorized reviewer must verify this interval")
     if not str(payload.get("evidence", "")).strip():
         raise HTTPException(422, "Document the verification evidence")
     item.status = "VERIFIED"

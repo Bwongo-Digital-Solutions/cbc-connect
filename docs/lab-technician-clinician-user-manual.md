@@ -92,11 +92,12 @@ A result marked **REVIEWED** is not automatically approved for patient release. 
 
 Before generating a final report:
 1. Open the CBC result and confirm the correct patient and sample identity.
-2. Enter or verify the **Patient name**, **Age** and **Address** in the Patient details section.
-3. Select **Save patient details**. These fields are stored with the CBC result and appear on the final report.
-4. A final report can only be generated after a result has a saved review.
-5. Select **Generate branded final PDF** to download the report, or **Print branded final PDF** to open the same branded report in the browser print dialog. The generated PDF uses the clinic's saved logo, theme colour, header, address and footer.
-6. Check the patient identity, sample details, measurements, units and comments before printing or sharing.
+2. The **Sample / accession ID** and **Patient reference** are prefilled from the CBC result, alongside the patient name, age and address fields.
+3. Verify all five fields against the source CBC report and laboratory request. Edit any field when a correction is needed and supported by the source record.
+4. Select **Save report details**. The editable values are stored with the CBC result and included in the final report.
+5. A final report can only be generated after a result has a saved review.
+6. Select **Generate branded final PDF** to download the report, or **Print branded final PDF** to open the same branded report in the browser print dialog. The generated PDF uses the clinic's saved logo, theme colour, header, address and footer.
+7. Check the patient identity, sample details, measurements, units and comments before printing or sharing.
 
 The branded report footer includes **Powered by ClinicHIS** and the clinic contact numbers. The original uploaded source document and original analyzer measurements are not changed.
 
@@ -112,7 +113,7 @@ Clinic supervisors and administrators can open the **Clinic branding** tab to se
 
 Select **Save clinic branding**. The settings are stored in the clinic database and reused automatically; they do not need to be entered for every report. Return to this tab to edit the defaults. Changes apply to reports generated after the change; previously generated PDFs remain as they were.
 
-Patient name, age and address are patient-specific and must be checked for each result. Do not copy patient details from another record.
+Patient name, age, address, patient reference and sample/accession ID are prefilled from the CBC result and can be edited in the report identity panel. Verify every value against the source records before saving and generating a report. Do not copy patient details from another record.
 
 Only use a report for its intended purpose after the responsible staff have completed the clinic's approval process. A PDF uploaded as a source document is for viewing; it is not a report template.
 

@@ -82,3 +82,15 @@ class ReferenceInterval(Base):
     status: Mapped[str] = mapped_column(String(20), default="DRAFT")
     verified_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ResultDocument(Base):
+    __tablename__ = "result_documents"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    result_id: Mapped[int] = mapped_column(ForeignKey("cbc_results.id"), index=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    content_type: Mapped[str] = mapped_column(String(120))
+    storage_path: Mapped[str] = mapped_column(String(500))
+    uploaded_by: Mapped[str] = mapped_column(String(120))
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

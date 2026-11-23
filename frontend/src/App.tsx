@@ -21,6 +21,9 @@ async function request(path:string, init:RequestInit={}) {
  return response.status===204?null:response.json()
 }
 export default function App(){
+ const [token,setToken]=useState(()=>localStorage.getItem('cbc_token')||'')
+ const [credentials,setCredentials]=useState({username:'admin',password:''})
+ const [loginError,setLoginError]=useState('')
  const [tab,setTab]=useState('results'),[results,setResults]=useState<Result[]>([]),[counts,setCounts]=useState({total:0,pending:0,reviewed:0})
  const [query,setQuery]=useState(''),[status,setStatus]=useState('ALL'),[selected,setSelected]=useState<Detail|null>(null)
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false)

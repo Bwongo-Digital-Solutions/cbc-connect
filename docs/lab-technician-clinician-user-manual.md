@@ -51,7 +51,17 @@ To view a report:
 3. The report opens in the document viewer. Use the viewer controls to zoom or move between PDF pages.
 4. Close the viewer to return to the CBC result.
 
-The uploaded file is kept as the original source document. CBC Connect does not silently change or replace it.
+The uploaded file is kept as the original source document. CBC Connect does not silently change or replace it. Any annotations are saved as a separate copy.
+
+### Annotate an uploaded report
+
+1. Select **Annotate** beside an original PDF, PNG or JPG source document.
+2. Choose **Highlight**, **Pen**, **Text** or **Comment** from the toolbar. For a PDF, use the page controls to move through its pages.
+3. Use the pointer on the report to place the annotation. Text and comment tools ask you to enter the wording.
+4. Select **Save annotated copy**. CBC Connect stores a new annotated PDF or image and records who saved it and when.
+5. The annotated copy appears as a separate document. The original source upload remains unchanged and can still be opened.
+
+The editor adds visual annotations; it does not rewrite existing PDF text, change printed CBC values, or alter the analyzer measurements. Check annotations carefully before using or sharing the copy. An annotation is not a clinical correction or authorization.
 
 ### Add or change your notes
 

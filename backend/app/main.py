@@ -61,7 +61,7 @@ async def require_api_auth(request: Request, call_next):
     role = user.get("role")
     if path.endswith("/review") and role not in {"TECHNICIAN","SUPERVISOR","ADMIN"}:
         return JSONResponse(status_code=403, content={"detail":"Insufficient role"})
-    if ("/analytes" in path or "/templates" in path) and role not in {"SUPERVISOR","ADMIN"}:
+    if (request.method != "GET" and ("/analytes" in path or "/templates" in path) and role not in {"SUPERVISOR","ADMIN"}:
         return JSONResponse(status_code=403, content={"detail":"Supervisor or administrator role required"})
     request.state.user = user
     return await call_next(request)

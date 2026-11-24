@@ -848,8 +848,8 @@ async def _save_clinician_mark(request: Request, file: UploadFile, db: Session, 
     content = await file.read()
     if not content or len(content) > 2 * 1024 * 1024:
         raise HTTPException(413, "Image must be between 1 byte and 2 MB")
-    valid = (suffix == ".png" and content.startswith(b"\\x89PNG\\r\\n\\x1a\\n")) or (
-        suffix in {".jpg", ".jpeg"} and content.startswith(b"\\xff\\xd8\\xff"))
+    valid = (suffix == ".png" and content.startswith(b"\x89PNG\r\n\x1a\n")) or (
+        suffix in {".jpg", ".jpeg"} and content.startswith(b"\xff\xd8\xff"))
     if not valid:
         raise HTTPException(415, "Image content does not match its file extension")
     target = DOCUMENT_DIR / (f"clinician-{field}-" + os.urandom(12).hex() + suffix)

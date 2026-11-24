@@ -32,6 +32,10 @@ class ResultReview(Base):
     analyte_comments: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     reviewed_values: Mapped[dict] = mapped_column(JSON)
     reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    signatory_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    signatory_credentials: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    signatory_signature_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    signatory_stamp_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 class AuditEvent(Base):
     __tablename__ = "audit_events"
@@ -69,6 +73,10 @@ class UserAccount(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(30), default="TECHNICIAN")
     active: Mapped[bool] = mapped_column(default=True)
+    full_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    credentials: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    signature_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    stamp_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 
 class ReferenceInterval(Base):
@@ -112,6 +120,7 @@ class ClinicProfile(Base):
     phone: Mapped[str] = mapped_column(String(120), default="0775-872-454, 0751-319-201")
     email: Mapped[str] = mapped_column(String(160), default="")
     theme_color: Mapped[str] = mapped_column(String(7), default="#0879D9")
+    font_color: Mapped[str] = mapped_column(String(7), default="#243447")
     header_text: Mapped[str] = mapped_column(Text, default="")
     footer_text: Mapped[str] = mapped_column(Text, default="Powered by ClinicHIS")
     logo_path: Mapped[str | None] = mapped_column(String(500), nullable=True)

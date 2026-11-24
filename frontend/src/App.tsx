@@ -7,6 +7,7 @@ type Result = { id:number; sample_id:string; patient_reference?:string|null; pat
 type DocumentItem = {id:number;filename:string;content_type:string;uploaded_by:string;notes?:string|null;uploaded_at:string;parent_document_id?:number|null;document_kind?:string}
 type Detail = { result:Result; review?:{reviewer:string;comments?:string;reviewed_values:Record<string,Measurement>;reviewed_at:string}|null; audit:Array<{actor:string;action:string;details:Record<string,unknown>;created_at:string}>; documents?:DocumentItem[] }
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8900'
+const IDLE_TIMEOUT_MS = 5 * 60 * 1000
 const escapeHtml = (value:unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!))
 async function printBrandedReport(resultId:number,onError:(message:string)=>void){
  const win=window.open('about:blank','_blank')
@@ -33,6 +34,7 @@ export default function App(){
  const [loginError,setLoginError]=useState('')
  const [tab,setTab]=useState('results'),[results,setResults]=useState<Result[]>([]),[counts,setCounts]=useState({total:0,pending:0,reviewed:0})
  const [query,setQuery]=useState(''),[status,setStatus]=useState('ALL'),[selected,setSelected]=useState<Detail|null>(null)
+ const [pageSize,setPageSize]=useState(10),[page,setPage]=useState(1)
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false)
  const [sample,setSample]=useState({sample_id:'',patient_reference:'',patient_name:'',patient_age:'',patient_address:''})
  const [patient,setPatient]=useState({sample_id:'',patient_reference:'',patient_name:'',patient_age:'',patient_address:''})
@@ -48,9 +50,42 @@ export default function App(){
  async function loadTab(){try{if(tab==='analytes')setAnalytes(await request('/api/v1/analytes'));if(tab==='templates')setTemplates(await request('/api/v1/templates'))}catch(e){setError((e as Error).message)}}
  useEffect(()=>{if(token) refresh()},[token])
  useEffect(()=>{loadTab()},[tab])
+ useEffect(()=>{
+  if(!token)return
+  let timer:ReturnType<typeof setTimeout>
+  const signOutForInactivity=()=>{
+   localStorage.removeItem('cbc_token')
+   setToken('')
+   setSelected(null)
+   setLoginError('You were signed out after 5 minutes of inactivity. Please sign in again.')
+  }
+  const resetIdleTimer=()=>{
+   clearTimeout(timer)
+   timer=setTimeout(signOutForInactivity,IDLE_TIMEOUT_MS)
+  }
+  const activityEvents=['pointerdown','pointermove','keydown','scroll','touchstart','click']
+  activityEvents.forEach(event=>window.addEventListener(event,resetIdleTimer,{passive:true}))
+  const handleStorage=(event:StorageEvent)=>{
+   if(event.key==='cbc_token'&&!event.newValue){
+    setToken('')
+    setSelected(null)
+   }
+  }
+  window.addEventListener('storage',handleStorage)
+  resetIdleTimer()
+  return ()=>{
+   clearTimeout(timer)
+   activityEvents.forEach(event=>window.removeEventListener(event,resetIdleTimer))
+   window.removeEventListener('storage',handleStorage)
+  }
+ },[token])
  const analyzerPatientFields=new Set(selected?.result.patient_fields_from_analyzer||[])
  const sampleIdFromAnalyzer=!!selected&&selected.result.device_id!=="manual-entry"
  const filtered=useMemo(()=>results.filter(r=>(status==='ALL'||r.status===status)&&[r.sample_id,r.patient_reference||'',r.analyzer].join(' ').toLowerCase().includes(query.toLowerCase())),[results,status,query])
+ const pageCount=Math.max(1,Math.ceil(filtered.length/pageSize))
+ const paginatedResults=useMemo(()=>filtered.slice((page-1)*pageSize,page*pageSize),[filtered,page,pageSize])
+ useEffect(()=>{setPage(1)},[query,status,pageSize])
+ useEffect(()=>{if(page>pageCount)setPage(pageCount)},[page,pageCount])
  async function openResult(id:number){try{const d=await request('/api/v1/results/'+id);setSelected(d);setComments('');setReviewValues(d.result.values);setPatient({sample_id:d.result.sample_id||'',patient_reference:d.result.patient_reference||'',patient_name:d.result.patient_name||'',patient_age:d.result.patient_age||'',patient_address:d.result.patient_address||''});setDocNotes(Object.fromEntries((d.documents||[]).map((x:DocumentItem)=>[x.id,x.notes||''])))}catch(e){setError((e as Error).message)}}
  function isWordDocument(doc:DocumentItem){return /\.(doc|docx)$/i.test(doc.filename)}
  async function documentBlob(resultId:number,doc:DocumentItem,asPreview=false){const suffix=asPreview||isWordDocument(doc)?'/preview':'';const response=await fetch(API+'/api/v1/results/'+resultId+'/documents/'+doc.id+suffix,{headers:{Authorization:'Bearer '+localStorage.getItem('cbc_token')}});if(!response.ok)throw new Error('Unable to open document');return response.blob()}
@@ -75,14 +110,23 @@ export default function App(){
  async function signIn(e:FormEvent){e.preventDefault();setLoginError('');try{const response=await fetch(API+'/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(credentials)});const body=await response.json();if(!response.ok)throw new Error(body.detail||'Login failed');localStorage.setItem('cbc_token',body.access_token);setToken(body.access_token)}catch(err){setLoginError((err as Error).message)}}
  if(!token) return <main className="login-shell"><form className="login-card" onSubmit={signIn}><img className="app-mark login-mark" src="/lab-connect-icon.svg" alt="Lab Connect laboratory icon"/><h1>CBC Connect</h1><p className="muted">Sign in to the laboratory workspace.</p>{loginError&&<div className="alert error">{loginError}</div>}<label>Username<input required autoComplete="username" value={credentials.username} onChange={e=>setCredentials({...credentials,username:e.target.value})}/></label><label>Password<input required type="password" autoComplete="current-password" value={credentials.password} onChange={e=>setCredentials({...credentials,password:e.target.value})}/></label><button>Sign in</button></form></main>
  return <main className="shell">
-  <header className="topbar"><div className="brand"><img className="app-mark" src="/lab-connect-icon.svg" alt=""/><div><strong>CBC Connect</strong><small>Standalone laboratory workspace</small></div></div><div className="top-actions"><span className="badge">Standalone mode</span><button className="secondary" onClick={()=>{localStorage.removeItem("cbc_token");setToken("")}}>Sign out</button></div></header>
+  <header className="topbar"><div className="brand"><img className="app-mark" src="/lab-connect-icon.svg" alt=""/><div><strong>CBC Connect</strong><small>Standalone laboratory workspace</small></div></div><div className="top-actions"><span className="badge">Standalone mode</span><button className="secondary" onClick={()=>{localStorage.removeItem('cbc_token');setToken('');setSelected(null);setLoginError('')}}>Sign out</button></div></header>
   <section className="intro"><div><p className="eyebrow">LABORATORY WORKSPACE</p><h1>Complete blood count results</h1><p className="muted">Register samples, receive analyzer results and complete documented review.</p></div><div className="device"><span className="dot"></span><div><b>Analyzer receiver</b><small>Protocol configuration pending</small></div></div></section>
   <nav className="tabs">{[['results','Results queue'],['samples','Register sample'],['analytes','Analyte setup'],['templates','Report templates'],['branding','Clinic branding'],['guide','Staff user guide']].map(([id,label])=><button className={tab===id?'active':''} onClick={()=>{setTab(id);setSelected(null);setNotice('')}} key={id}>{label}</button>)}</nav>
   {error&&<div className="alert error">{error}</div>}{notice&&<div className="alert success">{notice}</div>}
   <section className="stats"><article><span>Total results</span><b>{counts.total}</b><small>All received and registered</small></article><article><span>Pending review</span><b>{counts.pending}</b><small>Awaiting qualified staff</small></article><article><span>Reviewed</span><b>{counts.reviewed}</b><small>Review recorded</small></article></section>
   {tab==='results'&&<section className="panel"><div className="panel-head"><div><h2>Results queue</h2><p className="muted">Original analyzer measurements are retained separately from reviewed values.</p></div><button className="secondary" onClick={refresh}>Refresh</button></div>
    <div className="toolbar"><input placeholder="Search sample, patient reference or analyzer" value={query} onChange={e=>setQuery(e.target.value)}/><select value={status} onChange={e=>setStatus(e.target.value)}><option value="ALL">All statuses</option><option value="PENDING_REVIEW">Pending review</option><option value="REVIEWED">Reviewed</option></select></div>
-   {filtered.length===0?<div className="empty"><div className="empty-icon">＋</div><b>No matching results</b><p>Analyzer results will appear here after ingestion, or register a sample manually.</p></div>:<div className="table-wrap"><table><thead><tr><th>Sample ID</th><th>Patient reference</th><th>Analyzer</th><th>Received</th><th>Status</th><th></th></tr></thead><tbody>{filtered.map(r=><tr key={r.id}><td><b>{r.sample_id}</b></td><td>{r.patient_reference||'—'}</td><td>{r.analyzer}</td><td>{new Date(r.received_at).toLocaleString()}</td><td><span className={'status '+(r.status==='REVIEWED'?'done':'')}>{r.status.replace('_',' ')}</span></td><td><button className="link" onClick={()=>openResult(r.id)}>Open</button></td></tr>)}</tbody></table></div>}
+   {filtered.length===0?<div className="empty"><div className="empty-icon">＋</div><b>No matching results</b><p>Analyzer results will appear here after ingestion, or register a sample manually.</p></div>:<div className="table-wrap"><table><thead><tr><th>Sample ID</th><th>Patient reference</th><th>Analyzer</th><th>Received</th><th>Status</th><th></th></tr></thead><tbody>{paginatedResults.map(r=><tr key={r.id}><td><b>{r.sample_id}</b></td><td>{r.patient_reference||'—'}</td><td>{r.analyzer}</td><td>{new Date(r.received_at).toLocaleString()}</td><td><span className={'status '+(r.status==='REVIEWED'?'done':'')}>{r.status.replace('_',' ')}</span></td><td><button className="link" onClick={()=>openResult(r.id)}>Open</button></td></tr>)}</tbody></table></div>}
+   {filtered.length>0&&<div className="pagination">
+    <div className="pagination-summary">Showing <b>{(page-1)*pageSize+1}</b>–<b>{Math.min(page*pageSize,filtered.length)}</b> of <b>{filtered.length}</b> results</div>
+    <div className="pagination-controls">
+     <label>Rows per page<select aria-label="Rows per page" value={pageSize} onChange={e=>setPageSize(Number(e.target.value))}><option value={5}>5</option><option value={10}>10</option><option value={15}>15</option><option value={20}>20</option></select></label>
+     <button className="secondary" disabled={page===1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Previous</button>
+     <span className="pagination-page">Page {page} of {pageCount}</span>
+     <button className="secondary" disabled={page>=pageCount} onClick={()=>setPage(p=>Math.min(pageCount,p+1))}>Next</button>
+    </div>
+   </div>}
   </section>}
   {tab==='samples'&&<section className="panel narrow"><h2>Register a sample</h2><p className="muted">Create a sample record before analyzer results arrive. Use the laboratory accession or barcode as the sample ID.</p><form onSubmit={submitSample} className="form"><label>Sample / accession ID<input required maxLength={120} value={sample.sample_id} onChange={e=>setSample({...sample,sample_id:e.target.value})} placeholder="e.g. CBC-2026-0001"/></label><label>Patient reference (optional)<input value={sample.patient_reference} onChange={e=>setSample({...sample,patient_reference:e.target.value})} placeholder="Hospital number or patient reference"/></label><label>Patient name (optional)<input value={sample.patient_name} onChange={e=>setSample({...sample,patient_name:e.target.value})} maxLength={200}/></label><label>Patient age (optional)<input value={sample.patient_age} onChange={e=>setSample({...sample,patient_age:e.target.value})} placeholder="e.g. 34 years or 8 months" maxLength={80}/></label><label>Patient address (optional)<textarea rows={2} value={sample.patient_address} onChange={e=>setSample({...sample,patient_address:e.target.value})} maxLength={1000}/></label><button disabled={busy}>Register sample</button></form></section>}
   {tab==='analytes'&&<section className="panel"><div className="panel-head"><div><h2>Analyte configuration</h2><p className="muted">Define local display names, units and decimal precision. This does not convert incoming measurements.</p></div></div><form className="inline-form" onSubmit={saveAnalyte}><input required placeholder="Code (e.g. WBC)" value={analyte.code} onChange={e=>setAnalyte({...analyte,code:e.target.value})}/><input required placeholder="Display name" value={analyte.display_name} onChange={e=>setAnalyte({...analyte,display_name:e.target.value})}/><input placeholder="Unit" value={analyte.unit} onChange={e=>setAnalyte({...analyte,unit:e.target.value})}/><input type="number" min="0" max="6" value={analyte.precision} onChange={e=>setAnalyte({...analyte,precision:Number(e.target.value)})}/><button>Save analyte</button></form><div className="table-wrap"><table><thead><tr><th>Code</th><th>Display name</th><th>Unit</th><th>Precision</th><th>Enabled</th></tr></thead><tbody>{analytes.map(a=><tr key={a.id}><td>{a.code}</td><td>{a.display_name}</td><td>{a.unit||'—'}</td><td>{a.precision}</td><td>{a.enabled?'Yes':'No'}</td></tr>)}</tbody></table></div>{analytes.length===0&&<p className="muted">No analytes configured yet.</p>}</section>}

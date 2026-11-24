@@ -54,7 +54,7 @@ export default function ClinicBranding({api,token}:Props){
  }
 
  async function saveClinician(e:FormEvent){
-  e.preventDefault();if(!clinician)return;setBusy(true);setError('');setMessage('')
+  e.preventDefault();if(!clinician)return;if(!signature&&!clinician.has_signature){setError('Upload your signature image before saving the clinician signatory profile.');return}setBusy(true);setError('');setMessage('')
   try{
    const response=await fetch(api+'/api/v1/users/me/profile',{method:'PUT',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({full_name:clinician.full_name,credentials:clinician.credentials})})
    const data=await response.json();if(!response.ok)throw new Error(data.detail||'Unable to save clinician details')

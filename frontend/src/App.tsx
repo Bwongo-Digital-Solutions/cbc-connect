@@ -33,7 +33,7 @@ export default function App(){
  const [credentials,setCredentials]=useState({username:'admin',password:''})
  const [loginError,setLoginError]=useState('')
  const [tab,setTab]=useState('results'),[results,setResults]=useState<Result[]>([]),[counts,setCounts]=useState({total:0,pending:0,reviewed:0})
- const [query,setQuery]=useState(''),[status,setStatus]=useState('ALL'),[selected,setSelected]=useState<Detail|null>(null)
+ const [query,setQuery]=useState(''),[status,setStatus]=useState('PENDING_REVIEW'),[selected,setSelected]=useState<Detail|null>(null)
  const [pageSize,setPageSize]=useState(10),[page,setPage]=useState(1)
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false)
  const [sample,setSample]=useState({sample_id:'',patient_reference:'',patient_name:'',patient_age:'',patient_address:''})
@@ -81,7 +81,7 @@ export default function App(){
  },[token])
  const analyzerPatientFields=new Set(selected?.result.patient_fields_from_analyzer||[])
  const sampleIdFromAnalyzer=!!selected&&selected.result.device_id!=="manual-entry"
- const filtered=useMemo(()=>results.filter(r=>(status==='ALL'||r.status===status)&&[r.sample_id,r.patient_reference||'',r.analyzer].join(' ').toLowerCase().includes(query.toLowerCase())),[results,status,query])
+ const filtered=useMemo(()=>results.filter(r=>r.status===status&&[r.sample_id,r.patient_reference||'',r.analyzer].join(' ').toLowerCase().includes(query.toLowerCase())),[results,status,query])
  const pageCount=Math.max(1,Math.ceil(filtered.length/pageSize))
  const paginatedResults=useMemo(()=>filtered.slice((page-1)*pageSize,page*pageSize),[filtered,page,pageSize])
  useEffect(()=>{setPage(1)},[query,status,pageSize])
@@ -116,7 +116,13 @@ export default function App(){
   {error&&<div className="alert error">{error}</div>}{notice&&<div className="alert success">{notice}</div>}
   <section className="stats"><article><span>Total results</span><b>{counts.total}</b><small>All received and registered</small></article><article><span>Pending review</span><b>{counts.pending}</b><small>Awaiting qualified staff</small></article><article><span>Reviewed</span><b>{counts.reviewed}</b><small>Review recorded</small></article></section>
   {tab==='results'&&<section className="panel"><div className="panel-head"><div><h2>Results queue</h2><p className="muted">Original analyzer measurements are retained separately from reviewed values.</p></div><button className="secondary" onClick={refresh}>Refresh</button></div>
-   <div className="toolbar"><input placeholder="Search sample, patient reference or analyzer" value={query} onChange={e=>setQuery(e.target.value)}/><select value={status} onChange={e=>setStatus(e.target.value)}><option value="ALL">All statuses</option><option value="PENDING_REVIEW">Pending review</option><option value="REVIEWED">Reviewed</option></select></div>
+   <div className="results-queue-toolbar">
+    <div className="queue-tabs" role="tablist" aria-label="Result review status">
+     <button type="button" role="tab" aria-selected={status==='PENDING_REVIEW'} className={status==='PENDING_REVIEW'?'active':''} onClick={()=>setStatus('PENDING_REVIEW')}>Pending <span>{counts.pending}</span></button>
+     <button type="button" role="tab" aria-selected={status==='REVIEWED'} className={status==='REVIEWED'?'active':''} onClick={()=>setStatus('REVIEWED')}>Reviewed <span>{counts.reviewed}</span></button>
+    </div>
+    <input placeholder="Search sample, patient reference or analyzer" value={query} onChange={e=>setQuery(e.target.value)}/>
+   </div>
    {filtered.length===0?<div className="empty"><div className="empty-icon">＋</div><b>No matching results</b><p>Analyzer results will appear here after ingestion, or register a sample manually.</p></div>:<div className="table-wrap"><table><thead><tr><th>Sample ID</th><th>Patient reference</th><th>Analyzer</th><th>Received</th><th>Status</th><th></th></tr></thead><tbody>{paginatedResults.map(r=><tr key={r.id}><td><b>{r.sample_id}</b></td><td>{r.patient_reference||'—'}</td><td>{r.analyzer}</td><td>{new Date(r.received_at).toLocaleString()}</td><td><span className={'status '+(r.status==='REVIEWED'?'done':'')}>{r.status.replace('_',' ')}</span></td><td><button className="link" onClick={()=>openResult(r.id)}>Open</button></td></tr>)}</tbody></table></div>}
    {filtered.length>0&&<div className="pagination">
     <div className="pagination-summary">Showing <b>{(page-1)*pageSize+1}</b>–<b>{Math.min(page*pageSize,filtered.length)}</b> of <b>{filtered.length}</b> results</div>

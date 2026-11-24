@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import os
 import math
 from pathlib import Path
-from fastapi import FastAPI, Depends, Header, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, Depends, Header, HTTPException, UploadFile, File, Form, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -140,15 +140,32 @@ def create_sample(payload: ManualSample, request: Request, db: Session = Depends
     return result
 
 @app.post("/api/v1/analyzer/ingest", response_model=ResultOut, status_code=201)
-def ingest(payload: AnalyzerPayload, x_device_id: str = Header(default="unregistered-device"),
-           db: Session = Depends(get_db)):
-    existing = db.query(CBCResult).filter_by(sample_id=payload.sample_id, device_id=x_device_id).first()
-    if existing:
-        raise HTTPException(status_code=409, detail="A result for this sample and device already exists")
-    result = db.query(CBCResult).filter_by(sample_id=payload.sample_id, device_id="manual-entry", analyzer="MANUAL").first()
-    values = {key: measurement.model_dump() for key, measurement in payload.values.items()}
+def ingest(payload: AnalyzerPayload, response: Response,
+           x_device_id: str = Header(default="unregistered-device"), db: Session = Depends(get_db)):
     incoming_patient_fields = [field for field in ("patient_reference", "patient_name", "patient_age", "patient_address")
                                if getattr(payload, field) is not None and str(getattr(payload, field)).strip()]
+    existing = db.query(CBCResult).filter_by(sample_id=payload.sample_id, device_id=x_device_id).first()
+    if existing:
+        # Analyzer retries may safely enrich missing biodata, but never replace
+        # existing identity values or the original CBC measurements.
+        enriched_fields = []
+        for field in incoming_patient_fields:
+            incoming_value = getattr(payload, field)
+            if not str(getattr(existing, field) or "").strip():
+                setattr(existing, field, incoming_value)
+                enriched_fields.append(field)
+        if enriched_fields:
+            existing.patient_fields_from_analyzer = sorted(
+                set(existing.patient_fields_from_analyzer or []) | set(enriched_fields)
+            )
+            audit(db, "analyzer:" + x_device_id, "RESULT_BIODATA_ENRICHED_FROM_ANALYZER",
+                  existing.id, {"sample_id": payload.sample_id, "fields": enriched_fields})
+            db.commit()
+            db.refresh(existing)
+        response.status_code = 200
+        return existing
+    result = db.query(CBCResult).filter_by(sample_id=payload.sample_id, device_id="manual-entry", analyzer="MANUAL").first()
+    values = {key: measurement.model_dump() for key, measurement in payload.values.items()}
     if result:
         result.patient_reference = payload.patient_reference or result.patient_reference
         result.patient_name = payload.patient_name or result.patient_name

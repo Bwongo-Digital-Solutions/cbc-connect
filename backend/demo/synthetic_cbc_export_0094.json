@@ -1,0 +1,87 @@
+{
+  "_demo_notice": "SYNTHETIC TRAINING DATA ONLY. Entirely fictional demonstration record; not real patient data, not a validated analyzer export, and not for clinical use.",
+  "sample_id": "SYNTH-CBC-0094",
+  "patient_reference": "SYNTH-PATIENT-0094",
+  "analyzer": "HumaCount 30TS (SIMULATED)",
+  "observed_at": "2026-11-24T06:28:00.000Z",
+  "values": {
+    "WBC": {
+      "value": 6.36,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "RBC": {
+      "value": 4.72,
+      "unit": "10^12/L",
+      "flag": null
+    },
+    "HGB": {
+      "value": 14.15,
+      "unit": "g/dL",
+      "flag": null
+    },
+    "HCT": {
+      "value": 42.74,
+      "unit": "%",
+      "flag": null
+    },
+    "MCV": {
+      "value": 91,
+      "unit": "fL",
+      "flag": null
+    },
+    "MCH": {
+      "value": 29.56,
+      "unit": "pg",
+      "flag": null
+    },
+    "MCHC": {
+      "value": 33.09,
+      "unit": "g/dL",
+      "flag": null
+    },
+    "RDW": {
+      "value": 13.2,
+      "unit": "%",
+      "flag": null
+    },
+    "PLT": {
+      "value": 249,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "MPV": {
+      "value": 9.29,
+      "unit": "fL",
+      "flag": null
+    },
+    "NEU#": {
+      "value": 3.72,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "LYM#": {
+      "value": 1.96,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "MONO#": {
+      "value": 0.39,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "EOS#": {
+      "value": 0.15,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "BASO#": {
+      "value": 0.05,
+      "unit": "10^9/L",
+      "flag": null
+    }
+  },
+  "patient_name": "Demo Patient 0094",
+  "patient_age": "41 years",
+  "patient_address": "Synthetic Training Site 4, Uganda"
+}

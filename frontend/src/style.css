@@ -143,3 +143,5 @@ footer{color:#8493a6}
 .analyte-review-fields .analyte-comment{grid-column:1/-1}
 .analyte-review-fields textarea{width:100%;resize:vertical}
 @media(max-width:760px){.analyte-review-fields{grid-template-columns:1fr}.analyte-review-fields .analyte-comment{grid-column:auto}}
+
+.range-source{display:block;margin:-5px 0 10px;color:#738398;font-size:10px;line-height:1.4}

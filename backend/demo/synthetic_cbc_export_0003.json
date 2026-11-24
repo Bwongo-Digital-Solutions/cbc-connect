@@ -1,5 +1,5 @@
 {
-  "_demo_notice": "SYNTHETIC TRAINING DATA ONLY. Not a real HumaCount export, not patient data, and not for clinical use.",
+  "_demo_notice": "SYNTHETIC TRAINING DATA ONLY. Patient name, age, address, sample ID and patient reference are fictional. Not a real HumaCount export, not real patient data, and not for clinical use.",
   "sample_id": "SYNTH-CBC-0003",
   "patient_reference": "SYNTH-PATIENT-0003",
   "analyzer": "HumaCount 30TS (SIMULATED)",
@@ -80,5 +80,8 @@
       "unit": "10^9/L",
       "flag": null
     }
-  }
+  },
+  "patient_name": "Mariam Nakato",
+  "patient_age": "19 years",
+  "patient_address": "Nansana, Wakiso, Uganda"
 }

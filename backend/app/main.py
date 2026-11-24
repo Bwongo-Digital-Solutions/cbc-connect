@@ -246,8 +246,14 @@ def review_result(result_id: int, payload: ReviewIn, request: Request, db: Sessi
     if unknown_comment_codes:
         raise HTTPException(422, "Per-analyte comments must match received analytes")
     cleaned_comments = {k: str(v).strip() for k, v in payload.analyte_comments.items() if str(v).strip()}
+    reviewer_account = db.query(UserAccount).filter_by(username=reviewer_identity, active=True).first()
+    is_clinician = bool(reviewer_account and reviewer_account.role == "CLINICIAN")
     review = ResultReview(result_id=result_id, reviewer=reviewer_identity,
-                          comments=payload.comments, analyte_comments=cleaned_comments, reviewed_values=corrected)
+                          comments=payload.comments, analyte_comments=cleaned_comments, reviewed_values=corrected,
+                          signatory_name=(reviewer_account.full_name if is_clinician else None),
+                          signatory_credentials=(reviewer_account.credentials if is_clinician else None),
+                          signatory_signature_path=(reviewer_account.signature_path if is_clinician else None),
+                          signatory_stamp_path=(reviewer_account.stamp_path if is_clinician else None))
     db.add(review)
     result.status = "REVIEWED"
     audit(db, reviewer_identity, "RESULT_REVIEWED", result_id,
@@ -494,7 +500,7 @@ def update_patient_details(result_id: int, payload: dict, request: Request, db: 
 
 def _clinic_profile_dict(profile: ClinicProfile):
     return {"clinic_name": profile.clinic_name, "address": profile.address, "phone": profile.phone,
-            "email": profile.email, "theme_color": profile.theme_color, "header_text": profile.header_text,
+            "email": profile.email, "theme_color": profile.theme_color, "font_color": profile.font_color, "header_text": profile.header_text,
             "footer_text": profile.footer_text, "logo_display_mode": profile.logo_display_mode,
             "logo_opacity": profile.logo_opacity, "has_logo": bool(profile.logo_path),
             "updated_by": profile.updated_by, "updated_at": profile.updated_at}
@@ -504,7 +510,7 @@ def _get_or_create_clinic_profile(db: Session):
     profile = db.get(ClinicProfile, 1)
     if profile is None:
         profile = ClinicProfile(id=1, clinic_name="Clinic", address="",
-            phone="0775-872-454, 0751-319-201", email="", theme_color="#0879D9",
+            phone="0775-872-454, 0751-319-201", email="", theme_color="#0879D9", font_color="#243447",
             header_text="", footer_text="Powered by ClinicHIS",
             updated_at=datetime.now(timezone.utc))
         db.add(profile)
@@ -542,12 +548,17 @@ def save_clinic_profile(payload: dict, request: Request, db: Session = Depends(g
         if not 0.03 <= opacity <= 0.30:
             raise HTTPException(422, "Logo opacity must be between 0.03 and 0.30")
         profile.logo_opacity = opacity
+    import re
     if "theme_color" in payload:
         color = str(payload.get("theme_color") or "").strip()
-        import re
         if not re.fullmatch(r"#[0-9A-Fa-f]{6}", color):
             raise HTTPException(422, "Theme colour must be a six-digit hex colour such as #0879D9")
         profile.theme_color = color.upper()
+    if "font_color" in payload:
+        color = str(payload.get("font_color") or "").strip()
+        if not re.fullmatch(r"#[0-9A-Fa-f]{6}", color):
+            raise HTTPException(422, "Font colour must be a six-digit hex colour such as #243447")
+        profile.font_color = color.upper()
     profile.updated_by = request.state.user.get("sub", "staff")
     profile.updated_at = datetime.now(timezone.utc)
     audit(db, profile.updated_by, "CLINIC_DOCUMENT_BRANDING_UPDATED",
@@ -689,9 +700,16 @@ def generate_branded_report(result_id: int, db: Session = Depends(get_db)):
         canvas.restoreState()
 
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="ClinicTitle", parent=styles["Title"], textColor=theme,
+    try:
+        font_ink = colors.HexColor(profile.font_color or "#243447")
+    except Exception:
+        font_ink = colors.HexColor("#243447")
+    for style_name in ("BodyText", "Normal", "Title", "Heading1", "Heading2", "Heading3"):
+        if style_name in styles:
+            styles[style_name].textColor = font_ink
+    styles.add(ParagraphStyle(name="ClinicTitle", parent=styles["Title"], textColor=font_ink,
                               fontName="Helvetica-Bold", fontSize=17, alignment=TA_LEFT, spaceAfter=3))
-    styles.add(ParagraphStyle(name="SectionHeading", parent=styles["Heading2"], textColor=theme,
+    styles.add(ParagraphStyle(name="SectionHeading", parent=styles["Heading2"], textColor=font_ink,
                               fontSize=11, spaceBefore=12, spaceAfter=6))
     styles.add(ParagraphStyle(name="SmallMuted", parent=styles["BodyText"], textColor=colors.HexColor("#536579"),
                               fontSize=8, leading=11))
@@ -730,8 +748,27 @@ def generate_branded_report(result_id: int, db: Session = Depends(get_db)):
     story.extend([result_table, Paragraph("Review information", styles["SectionHeading"]),
         Paragraph(f"<b>Reviewed by:</b> {escape(review.reviewer)} &nbsp;&nbsp; <b>Reviewed:</b> {escape(review.reviewed_at.strftime('%Y-%m-%d %H:%M'))}", styles["BodyText"]),
         Spacer(1, 5), Paragraph(f"<b>Review comments:</b> {escape(review.comments or 'None')}", styles["BodyText"]),
-        Spacer(1, 12), HRFlowable(width="100%", color=theme, thickness=0.8),
-        Paragraph("This report records the values reviewed in CBC Connect. It must be checked and authorized under the clinic's approved laboratory procedures before clinical release.", styles["SmallMuted"])])
+        Spacer(1, 10), Paragraph("CLINICIAN SIGN-OFF", styles["SectionHeading"])])
+    if review.signatory_name and review.signatory_credentials:
+        from reportlab.platypus import Image as ReportImage
+        sign_cells = []
+        if review.signatory_signature_path and Path(review.signatory_signature_path).is_file():
+            sign_cells.append(ReportImage(review.signatory_signature_path, width=38*mm, height=16*mm, kind="proportional"))
+        else:
+            sign_cells.append(Paragraph("Signature not on file at review time", styles["SmallMuted"]))
+        sign_cells.append(Paragraph(f"<b>{escape(review.signatory_name)}</b><br/>{escape(review.signatory_credentials)}", styles["BodyText"]))
+        if review.signatory_stamp_path and Path(review.signatory_stamp_path).is_file():
+            sign_cells.append(ReportImage(review.signatory_stamp_path, width=24*mm, height=24*mm, kind="proportional"))
+        sign_table = Table([sign_cells], colWidths=[55*mm, 75*mm] + ([35*mm] if len(sign_cells) == 3 else []))
+        sign_table.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),4),
+                                        ("RIGHTPADDING",(0,0),(-1,-1),4),("TOPPADDING",(0,0),(-1,-1),6),
+                                        ("BOTTOMPADDING",(0,0),(-1,-1),6)]))
+        story.append(sign_table)
+        story.append(Paragraph("Clinician details and signature image were captured from the authenticated reviewer profile when this review was recorded.", styles["SmallMuted"]))
+    else:
+        story.append(Paragraph("No clinician signatory profile was captured for this review. A laboratory review record is not, by itself, a signed or authorized clinical release.", styles["SmallMuted"]))
+    story.extend([Spacer(1, 12), HRFlowable(width="100%", color=theme, thickness=0.8),
+        Paragraph("A displayed signature or stamp image is a visual mark, not a cryptographic digital signature. Verify authorization under the clinic's approved procedures before clinical release.", styles["SmallMuted"])])
     try:
         doc.build(story, onFirstPage=draw_page, onLaterPages=draw_page)
         actor = "report-service"
@@ -769,6 +806,69 @@ def save_analyte(payload: AnalyteIn, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(item)
     return item
+
+
+@app.get("/api/v1/users/me/profile")
+def get_my_clinician_profile(request: Request, db: Session = Depends(get_db)):
+    username = request.state.user.get("sub", "")
+    user = db.query(UserAccount).filter_by(username=username, active=True).first()
+    if not user:
+        raise HTTPException(404, "User account not found")
+    if user.role != "CLINICIAN":
+        raise HTTPException(403, "Only clinician accounts can configure a report signatory")
+    return {"username": user.username, "full_name": user.full_name or "",
+            "credentials": user.credentials or "", "has_signature": bool(user.signature_path and Path(user.signature_path).is_file()),
+            "has_stamp": bool(user.stamp_path and Path(user.stamp_path).is_file())}
+
+
+@app.put("/api/v1/users/me/profile")
+def update_my_clinician_profile(payload: dict, request: Request, db: Session = Depends(get_db)):
+    username = request.state.user.get("sub", "")
+    user = db.query(UserAccount).filter_by(username=username, active=True).first()
+    if not user or user.role != "CLINICIAN":
+        raise HTTPException(403, "Only clinician accounts can configure a report signatory")
+    full_name = str(payload.get("full_name", "")).strip()
+    credentials = str(payload.get("credentials", "")).strip()
+    if not full_name or not credentials or len(full_name) > 200 or len(credentials) > 200:
+        raise HTTPException(422, "Provide the clinician's name and professional credentials")
+    user.full_name, user.credentials = full_name, credentials
+    audit(db, username, "CLINICIAN_SIGNATORY_PROFILE_UPDATED", details={"full_name": full_name, "credentials": credentials})
+    db.commit()
+    return {"username": user.username, "full_name": user.full_name, "credentials": user.credentials}
+
+
+async def _save_clinician_mark(request: Request, file: UploadFile, db: Session, field: str):
+    username = request.state.user.get("sub", "")
+    user = db.query(UserAccount).filter_by(username=username, active=True).first()
+    if not user or user.role != "CLINICIAN":
+        raise HTTPException(403, "Only clinician accounts can upload report signature or stamp images")
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in {".png", ".jpg", ".jpeg"}:
+        raise HTTPException(415, "Only PNG or JPG signature and stamp images are accepted")
+    content = await file.read()
+    if not content or len(content) > 2 * 1024 * 1024:
+        raise HTTPException(413, "Image must be between 1 byte and 2 MB")
+    valid = (suffix == ".png" and content.startswith(b"\\x89PNG\\r\\n\\x1a\\n")) or (
+        suffix in {".jpg", ".jpeg"} and content.startswith(b"\\xff\\xd8\\xff"))
+    if not valid:
+        raise HTTPException(415, "Image content does not match its file extension")
+    target = DOCUMENT_DIR / (f"clinician-{field}-" + os.urandom(12).hex() + suffix)
+    target.write_bytes(content)
+    setattr(user, field, str(target))
+    audit(db, username, "CLINICIAN_" + field.upper() + "_UPLOADED")
+    db.commit()
+    return {"message": "Clinician image saved", "field": field}
+
+
+@app.post("/api/v1/users/me/signature")
+async def upload_my_signature(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    return await _save_clinician_mark(request, file, db, "signature_path")
+
+
+@app.post("/api/v1/users/me/stamp")
+async def upload_my_stamp(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    return await _save_clinician_mark(request, file, db, "stamp_path")
+
 
 @app.post("/api/v1/users", status_code=201)
 def create_user(payload: dict, request: Request, db: Session = Depends(get_db)):

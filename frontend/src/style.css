@@ -19,3 +19,10 @@
 .patient-details-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
 .patient-details-grid .patient-address{grid-column:1/-1}
 @media(max-width:760px){.branding-form,.patient-details-grid{grid-template-columns:1fr}.branding-wide,.patient-details-grid .patient-address{grid-column:auto}}
+
+/* Lab Connect identity and analyzer-sourced field states */
+.app-mark{width:42px;height:42px;display:block;flex:0 0 auto;object-fit:contain;border-radius:12px;box-shadow:0 5px 14px #0879d926}
+.login-mark{width:62px;height:62px;margin-bottom:2px}
+.login-card{gap:15px}
+input[readonly],textarea[readonly]{background:#f1f5f9;color:#52647b;border-color:#d9e2ec;cursor:not-allowed}
+.field-locked{display:block;color:#16734a;font-size:10px;font-weight:700;letter-spacing:.1px}

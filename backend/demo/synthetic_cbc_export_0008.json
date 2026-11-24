@@ -1,0 +1,87 @@
+{
+  "_demo_notice": "SYNTHETIC TRAINING DATA ONLY. Fictional patient identity and simulated CBC values for software demonstration only; not real patient data, not a validated HumaCount export, and not for clinical use.",
+  "sample_id": "SYNTH-CBC-0008",
+  "patient_reference": "SYNTH-PATIENT-0008",
+  "analyzer": "HumaCount 30TS (SIMULATED)",
+  "observed_at": "2026-11-24T05:02:00.000Z",
+  "values": {
+    "WBC": {
+      "value": 6.47,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "RBC": {
+      "value": 4.68,
+      "unit": "10^12/L",
+      "flag": null
+    },
+    "HGB": {
+      "value": 13.96,
+      "unit": "g/dL",
+      "flag": null
+    },
+    "HCT": {
+      "value": 42.13,
+      "unit": "%",
+      "flag": null
+    },
+    "MCV": {
+      "value": 89.77,
+      "unit": "fL",
+      "flag": null
+    },
+    "MCH": {
+      "value": 30.13,
+      "unit": "pg",
+      "flag": null
+    },
+    "MCHC": {
+      "value": 33.78,
+      "unit": "g/dL",
+      "flag": null
+    },
+    "RDW": {
+      "value": 12.94,
+      "unit": "%",
+      "flag": null
+    },
+    "PLT": {
+      "value": 247,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "MPV": {
+      "value": 9.07,
+      "unit": "fL",
+      "flag": null
+    },
+    "NEU#": {
+      "value": 3.8,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "LYM#": {
+      "value": 2,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "MONO#": {
+      "value": 0.4,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "EOS#": {
+      "value": 0.15,
+      "unit": "10^9/L",
+      "flag": null
+    },
+    "BASO#": {
+      "value": 0.05,
+      "unit": "10^9/L",
+      "flag": null
+    }
+  },
+  "patient_name": "Mariam Nabirye",
+  "patient_age": "40 years",
+  "patient_address": "Entebbe, Wakiso, Uganda"
+}

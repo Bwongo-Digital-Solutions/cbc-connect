@@ -1,13 +1,13 @@
 import { FormEvent, useEffect, useState } from 'react'
 
 type Profile = {
-  clinic_name:string; address:string; phone:string; email:string; theme_color:string; font_color:string;
+  clinic_name:string; address:string; phone:string; email:string; theme_color:string; font_color:string; font_family:string;
   header_text:string; footer_text:string; has_logo:boolean; logo_display_mode:'header'|'watermark'|'background'|'both'; logo_opacity:number
 }
 type Props = { api:string; token:string }
 const defaults:Profile = {
   clinic_name:'Clinic', address:'', phone:'0775-872-454, 0751-319-201', email:'',
-  theme_color:'#0879D9', font_color:'#243447', header_text:'', footer_text:'Powered by ClinicHIS', has_logo:false, logo_display_mode:'header', logo_opacity:0.10
+  theme_color:'#0879D9', font_color:'#243447', font_family:'Arial', header_text:'', footer_text:'Powered by ClinicHIS', has_logo:false, logo_display_mode:'header', logo_opacity:0.10
 }
 export default function ClinicBranding({api,token}:Props){
  const [profile,setProfile]=useState<Profile>(defaults)
@@ -84,6 +84,12 @@ export default function ClinicBranding({api,token}:Props){
    {field('clinic_name','Clinic name')}
    {field('theme_color','Theme colour (hex, e.g. #0879D9)')}
    {field('font_color','Document font colour')}
+   <label>Document font style
+    <select value={profile.font_family} onChange={e=>setProfile({...profile,font_family:e.target.value})}>
+     <option value="Arial">Arial</option><option value="Calibri">Calibri</option><option value="Aptos">Aptos</option><option value="Times New Roman">Times New Roman</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Trebuchet MS">Trebuchet MS</option>
+    </select>
+    <small className="muted">Applied to generated Word and PDF reports. Existing uploaded source documents remain unchanged.</small>
+   </label>
    {field('address','Clinic address',true)}
    {field('phone','Contact numbers')}
    {field('email','Email address')}
@@ -102,7 +108,7 @@ export default function ClinicBranding({api,token}:Props){
     <input type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" onChange={e=>setLogo(e.target.files?.[0]||null)}/>
    </label>
    {(logoUrl||logo)&&<div className="branding-logo-preview branding-wide"><img src={logo?selectedLogoUrl:logoUrl} alt="Clinic logo preview"/><span>{logo?.name||'Current saved logo'}</span></div>}
-   <div className="branding-wide branding-preview" style={{borderTopColor:profile.theme_color}}>
+   <div className="branding-wide branding-preview" style={{borderTopColor:profile.theme_color,fontFamily:profile.font_family}}>
     <strong style={{color:profile.font_color}}>{profile.clinic_name||'Clinic name'}</strong>
     <span style={{color:profile.font_color}}>{profile.address||'Clinic address appears in the document header'}</span>
     <small style={{color:profile.font_color}}>{profile.footer_text||'Powered by ClinicHIS'} · {profile.phone||'0775-872-454, 0751-319-201'}</small>

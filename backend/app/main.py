@@ -156,8 +156,10 @@ def result_detail(result_id: int, db: Session = Depends(get_db)):
 def create_sample(payload: ManualSample, request: Request, db: Session = Depends(get_db)):
     result = CBCResult(sample_id=payload.sample_id, patient_reference=payload.patient_reference,
         patient_name=payload.patient_name, patient_age=payload.patient_age, patient_address=payload.patient_address,
-        analyzer="MANUAL", device_id="manual-entry", observed_at=payload.collected_at,
-        status="PENDING_REVIEW", values={})
+        gender=payload.gender, patient_contact=payload.patient_contact,
+        requesting_officer=payload.requesting_officer, requested_test=payload.requested_test,
+        collected_at=payload.collected_at, analyzer="MANUAL", device_id="manual-entry",
+        observed_at=payload.collected_at, status="PENDING_REVIEW", values={})
     db.add(result)
     try:
         db.flush()
@@ -173,8 +175,10 @@ def create_sample(payload: ManualSample, request: Request, db: Session = Depends
 @app.post("/api/v1/analyzer/ingest", response_model=ResultOut, status_code=201)
 def ingest(payload: AnalyzerPayload, response: Response,
            x_device_id: str = Header(default="unregistered-device"), db: Session = Depends(get_db)):
-    incoming_patient_fields = [field for field in ("patient_reference", "patient_name", "patient_age", "patient_address")
-                               if getattr(payload, field) is not None and str(getattr(payload, field)).strip()]
+    incoming_patient_fields = [field for field in (
+        "patient_reference", "patient_name", "patient_age", "patient_address", "gender",
+        "patient_contact", "requesting_officer", "requested_test", "collected_at"
+    ) if getattr(payload, field) is not None and str(getattr(payload, field)).strip()]
     existing = db.query(CBCResult).filter_by(sample_id=payload.sample_id, device_id=x_device_id).first()
     if existing:
         # Analyzer retries may safely enrich missing biodata, but never replace
@@ -202,6 +206,10 @@ def ingest(payload: AnalyzerPayload, response: Response,
         result.patient_name = payload.patient_name or result.patient_name
         result.patient_age = payload.patient_age or result.patient_age
         result.patient_address = payload.patient_address or result.patient_address
+        for field in ("gender", "patient_contact", "requesting_officer", "requested_test", "collected_at"):
+            incoming = getattr(payload, field)
+            if incoming is not None:
+                setattr(result, field, incoming)
         result.patient_fields_from_analyzer = sorted(set(result.patient_fields_from_analyzer or []) | set(incoming_patient_fields))
         result.analyzer = payload.analyzer
         result.device_id = x_device_id
@@ -212,6 +220,9 @@ def ingest(payload: AnalyzerPayload, response: Response,
     else:
         result = CBCResult(sample_id=payload.sample_id, patient_reference=payload.patient_reference,
             patient_name=payload.patient_name, patient_age=payload.patient_age, patient_address=payload.patient_address,
+            gender=payload.gender, patient_contact=payload.patient_contact,
+            requesting_officer=payload.requesting_officer, requested_test=payload.requested_test,
+            collected_at=payload.collected_at or payload.observed_at,
             patient_fields_from_analyzer=incoming_patient_fields,
             analyzer=payload.analyzer, device_id=x_device_id, observed_at=payload.observed_at,
             status="PENDING_REVIEW", values=values)
@@ -465,7 +476,8 @@ def update_patient_details(result_id: int, payload: dict, request: Request, db: 
     if not result:
         raise HTTPException(404, "Result not found")
     fields = {"sample_id": 120, "patient_reference": 120, "patient_name": 200,
-              "patient_age": 80, "patient_address": 1000}
+              "patient_age": 80, "patient_address": 1000, "gender": 30,
+              "patient_contact": 80, "requesting_officer": 200, "requested_test": 2000}
     updated = []
     for field, limit in fields.items():
         if field not in payload:
@@ -491,13 +503,27 @@ def update_patient_details(result_id: int, payload: dict, request: Request, db: 
             raise HTTPException(409, f"{field.replace('_', ' ').title()} was supplied by the analyzer and cannot be edited")
         setattr(result, field, value or None)
         updated.append(field)
+    if "collected_at" in payload:
+        raw_collected = str(payload.get("collected_at") or "").strip()
+        if "collected_at" in set(result.patient_fields_from_analyzer or []) and raw_collected:
+            existing_collected = result.collected_at.isoformat() if result.collected_at else ""
+            if raw_collected != existing_collected:
+                raise HTTPException(409, "Collection date/time was supplied by the analyzer and cannot be edited")
+        try:
+            result.collected_at = datetime.fromisoformat(raw_collected.replace("Z", "+00:00")) if raw_collected else None
+            result.observed_at = result.collected_at if result.device_id == "manual-entry" else result.observed_at
+        except ValueError:
+            raise HTTPException(422, "Collection date/time must be a valid ISO date-time")
+        updated.append("collected_at")
     actor = request.state.user.get("sub", "staff")
     audit(db, actor, "PATIENT_AND_SAMPLE_DETAILS_UPDATED", result_id,
           {"fields_updated": updated})
     db.commit()
     return {"sample_id": result.sample_id, "patient_reference": result.patient_reference,
             "patient_name": result.patient_name, "patient_age": result.patient_age,
-            "patient_address": result.patient_address}
+            "patient_address": result.patient_address, "gender": result.gender,
+            "patient_contact": result.patient_contact, "requesting_officer": result.requesting_officer,
+            "requested_test": result.requested_test, "collected_at": result.collected_at}
 
 
 def _clinic_profile_dict(profile: ClinicProfile):
@@ -726,13 +752,22 @@ def generate_branded_report(result_id: int, db: Session = Depends(get_db)):
                             author=profile.clinic_name or "Clinic")
     story = [Paragraph("COMPLETE BLOOD COUNT REPORT", styles["ClinicTitle"]),
              Paragraph("Patient and specimen information", styles["SectionHeading"])]
+    collected = result.collected_at or result.observed_at
     patient_rows = [
         [Paragraph("<b>Patient name</b>", styles["BodyText"]), escape(result.patient_name or "Not recorded"),
          Paragraph("<b>Age</b>", styles["BodyText"]), escape(result.patient_age or "Not recorded")],
-        [Paragraph("<b>Address</b>", styles["BodyText"]), Paragraph(escape(result.patient_address or "Not recorded"), styles["BodyText"]),
+        [Paragraph("<b>Gender</b>", styles["BodyText"]), escape(result.gender or "—"),
+         Paragraph("<b>Patient contact</b>", styles["BodyText"]), escape(result.patient_contact or "—")],
+        [Paragraph("<b>Requesting officer</b>", styles["BodyText"]), escape(result.requesting_officer or "—"),
+         Paragraph("<b>Requested test</b>", styles["BodyText"]), Paragraph(escape(result.requested_test or "—"), styles["BodyText"])],
+        [Paragraph("<b>Date collected</b>", styles["BodyText"]), escape(collected.strftime("%Y-%m-%d") if collected else "—"),
+         Paragraph("<b>Time</b>", styles["BodyText"]), escape(collected.strftime("%H:%M") if collected else "—")],
+        [Paragraph("<b>Date received</b>", styles["BodyText"]), escape(result.received_at.strftime("%Y-%m-%d %H:%M") if result.received_at else "—"),
          Paragraph("<b>Patient reference</b>", styles["BodyText"]), escape(result.patient_reference or "—")],
-        [Paragraph("<b>Sample ID</b>", styles["BodyText"]), escape(result.sample_id),
-         Paragraph("<b>Analyzer</b>", styles["BodyText"]), escape(result.analyzer)],
+        [Paragraph("<b>Address</b>", styles["BodyText"]), Paragraph(escape(result.patient_address or "Not recorded"), styles["BodyText"]),
+         Paragraph("<b>Sample ID</b>", styles["BodyText"]), escape(result.sample_id)],
+        [Paragraph("<b>Analyzer</b>", styles["BodyText"]), escape(result.analyzer),
+         Paragraph("<b>Device ID</b>", styles["BodyText"]), escape(result.device_id)],
     ]
     patient_table = Table(patient_rows, colWidths=[28*mm, 57*mm, 30*mm, 55*mm])
     patient_table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),colors.HexColor("#F4F7FA")),("TEXTCOLOR",(0,0),(-1,-1),font_ink),
@@ -924,6 +959,13 @@ def generate_sample_template(request: Request, db: Session = Depends(get_db)):
     for label, placeholder in [
         ("Sample / accession ID", "{{ sample_id }}"),
         ("Patient reference", "{{ patient_reference }}"),
+        ("Gender", "{{ gender }}"),
+        ("Patient contact", "{{ patient_contact }}"),
+        ("Requesting officer", "{{ requesting_officer }}"),
+        ("Requested test", "{{ requested_test }}"),
+        ("Date collected", "{{ date_collected }}"),
+        ("Time", "{{ collection_time }}"),
+        ("Date received", "{{ date_received }}"),
         ("Analyzer", "{{ analyzer }}"),
         ("Received", "{{ received_at }}"),
         ("Reviewed by", "{{ reviewer }}"),
@@ -1014,9 +1056,15 @@ def generate_report(result_id: int, template_id: int, db: Session = Depends(get_
     try:
         doc = DocxTemplate(template.storage_path)
         profile = _get_or_create_clinic_profile(db)
+        collected = result.collected_at or result.observed_at
         context = {"sample_id":result.sample_id,"patient_reference":result.patient_reference or "",
             "patient_name":result.patient_name or "Not recorded","patient_age":result.patient_age or "Not recorded",
-            "patient_address":result.patient_address or "Not recorded",
+            "patient_address":result.patient_address or "Not recorded", "gender":result.gender or "",
+            "patient_contact":result.patient_contact or "", "requesting_officer":result.requesting_officer or "",
+            "requested_test":result.requested_test or "",
+            "date_collected":collected.strftime("%Y-%m-%d") if collected else "",
+            "collection_time":collected.strftime("%H:%M") if collected else "",
+            "date_received":result.received_at.strftime("%Y-%m-%d") if result.received_at else "",
             "clinic_name":profile.clinic_name,"clinic_address":profile.address,"clinic_phone":profile.phone,
             "clinic_email":profile.email,"header_text":profile.header_text,"footer_text":profile.footer_text,
             "analyzer":result.analyzer,"reviewer":review.reviewer,"signatory_name":review.signatory_name or "Not recorded","signatory_credentials":review.signatory_credentials or "","comments":review.comments or "",
@@ -1091,14 +1139,23 @@ def generate_report(result_id: int, template_id: int, db: Session = Depends(get_
             footer_run.font.color.rgb = RGBColor(*font_rgb)
 
         # Patient identity is inserted automatically, independently of template placeholders.
-        patient_table = branded_doc.add_table(rows=5, cols=2)
+        patient_table = branded_doc.add_table(rows=0, cols=2)
         patient_table.style = "Table Grid"
+        collected = result.collected_at or result.observed_at
         patient_rows = [("Patient name", result.patient_name or "Not recorded"),
                         ("Age", result.patient_age or "Not recorded"),
+                        ("Gender", result.gender or "Not recorded"),
+                        ("Patient contact", result.patient_contact or "Not recorded"),
                         ("Address", result.patient_address or "Not recorded"),
                         ("Patient reference", result.patient_reference or "Not recorded"),
+                        ("Requesting officer", result.requesting_officer or "Not recorded"),
+                        ("Requested test", result.requested_test or "Not recorded"),
+                        ("Date collected", collected.strftime("%Y-%m-%d") if collected else "Not recorded"),
+                        ("Time", collected.strftime("%H:%M") if collected else "Not recorded"),
+                        ("Date received", result.received_at.strftime("%Y-%m-%d") if result.received_at else "Not recorded"),
                         ("Sample / accession ID", result.sample_id)]
-        for row, (label, value) in zip(patient_table.rows, patient_rows):
+        for label, value in patient_rows:
+            row = patient_table.add_row()
             row.cells[0].text = label
             row.cells[1].text = value
             for run in row.cells[1].paragraphs[0].runs:

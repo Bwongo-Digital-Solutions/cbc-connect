@@ -1074,6 +1074,7 @@ def generate_report(result_id: int, template_id: int, db: Session = Depends(get_
             if profile.header_text:
                 extra = hp.add_run("\n" + profile.header_text)
                 extra.font.size = Pt(8)
+                extra.font.color.rgb = RGBColor(*font_rgb)
             footer = section.footer
             footer.is_linked_to_previous = False
             fp = footer.paragraphs[0]

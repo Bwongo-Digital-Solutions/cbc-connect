@@ -27,6 +27,10 @@ class ManualSample(BaseModel):
     patient_name: str | None = Field(default=None, max_length=200)
     patient_age: str | None = Field(default=None, max_length=80)
     patient_address: str | None = Field(default=None, max_length=1000)
+    gender: str | None = Field(default=None, max_length=30)
+    patient_contact: str | None = Field(default=None, max_length=80)
+    requesting_officer: str | None = Field(default=None, max_length=200)
+    requested_test: str | None = Field(default=None, max_length=2000)
     collected_at: datetime | None = None
 
 class ReviewIn(BaseModel):

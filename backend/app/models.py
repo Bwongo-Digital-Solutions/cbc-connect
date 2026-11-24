@@ -29,6 +29,7 @@ class ResultReview(Base):
     result_id: Mapped[int] = mapped_column(ForeignKey("cbc_results.id"), unique=True, index=True)
     reviewer: Mapped[str] = mapped_column(String(120))
     comments: Mapped[str | None] = mapped_column(Text, nullable=True)
+    analyte_comments: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     reviewed_values: Mapped[dict] = mapped_column(JSON)
     reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

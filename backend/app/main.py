@@ -502,7 +502,7 @@ def update_patient_details(result_id: int, payload: dict, request: Request, db: 
 
 def _clinic_profile_dict(profile: ClinicProfile):
     return {"clinic_name": profile.clinic_name, "address": profile.address, "phone": profile.phone,
-            "email": profile.email, "theme_color": profile.theme_color, "font_color": profile.font_color, "header_text": profile.header_text,
+            "email": profile.email, "theme_color": profile.theme_color, "font_color": profile.font_color, "font_family": profile.font_family, "header_text": profile.header_text,
             "footer_text": profile.footer_text, "logo_display_mode": profile.logo_display_mode,
             "logo_opacity": profile.logo_opacity, "has_logo": bool(profile.logo_path),
             "updated_by": profile.updated_by, "updated_at": profile.updated_at}
@@ -512,7 +512,7 @@ def _get_or_create_clinic_profile(db: Session):
     profile = db.get(ClinicProfile, 1)
     if profile is None:
         profile = ClinicProfile(id=1, clinic_name="Clinic", address="",
-            phone="0775-872-454, 0751-319-201", email="", theme_color="#0879D9", font_color="#243447",
+            phone="0775-872-454, 0751-319-201", email="", theme_color="#0879D9", font_color="#243447", font_family="Arial",
             header_text="", footer_text="Powered by ClinicHIS",
             updated_at=datetime.now(timezone.utc))
         db.add(profile)
@@ -561,6 +561,12 @@ def save_clinic_profile(payload: dict, request: Request, db: Session = Depends(g
         if not re.fullmatch(r"#[0-9A-Fa-f]{6}", color):
             raise HTTPException(422, "Font colour must be a six-digit hex colour such as #243447")
         profile.font_color = color.upper()
+    if "font_family" in payload:
+        font_family = str(payload.get("font_family") or "").strip()
+        allowed_fonts = {"Arial", "Calibri", "Aptos", "Times New Roman", "Georgia", "Verdana", "Tahoma", "Trebuchet MS"}
+        if font_family not in allowed_fonts:
+            raise HTTPException(422, "Choose a font from the supported clinic document font list")
+        profile.font_family = font_family
     profile.updated_by = request.state.user.get("sub", "staff")
     profile.updated_at = datetime.now(timezone.utc)
     audit(db, profile.updated_by, "CLINIC_DOCUMENT_BRANDING_UPDATED",
@@ -1127,6 +1133,33 @@ def generate_report(result_id: int, template_id: int, db: Session = Depends(get_
             note = branded_doc.add_paragraph("No clinician signatory profile was captured when this review was recorded.")
             for run in note.runs:
                 run.font.color.rgb = RGBColor(*font_rgb)
+        # Apply the selected clinic font consistently to all generated DOCX text,
+        # including template content, inserted patient details, tables and sign-off.
+        selected_font = profile.font_family or "Arial"
+        from docx.oxml.ns import qn as font_qn
+        for style in branded_doc.styles:
+            try:
+                style.font.name = selected_font
+                style._element.rPr.rFonts.set(font_qn("w:eastAsia"), selected_font)
+            except Exception:
+                pass
+        def apply_font_family(paragraphs):
+            for paragraph in paragraphs:
+                for run in paragraph.runs:
+                    run.font.name = selected_font
+                    run._element.get_or_add_rPr().rFonts.set(font_qn("w:eastAsia"), selected_font)
+        apply_font_family(branded_doc.paragraphs)
+        for table in branded_doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    apply_font_family(cell.paragraphs)
+        for section in branded_doc.sections:
+            apply_font_family(section.header.paragraphs)
+            apply_font_family(section.footer.paragraphs)
+            for table in list(section.header.tables) + list(section.footer.tables):
+                for row in table.rows:
+                    for cell in row.cells:
+                        apply_font_family(cell.paragraphs)
         branded_doc.save(docx_path)
         completed = subprocess.run(["libreoffice","--headless","--convert-to","pdf","--outdir",str(work),str(docx_path)],
                                    capture_output=True, timeout=60)

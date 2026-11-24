@@ -5,7 +5,7 @@ from app.schemas import AnalyzerPayload
 
 def test_all_synthetic_demo_payloads_match_normalized_ingest_schema():
     fixtures = sorted((Path(__file__).parents[1] / "demo").glob("synthetic_cbc_export*.json"))
-    assert len(fixtures) >= 5
+    assert len(fixtures) >= 105
     sample_ids = set()
     for fixture in fixtures:
         raw = json.loads(fixture.read_text(encoding="utf-8"))

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import os
 import math
+import json
 from pathlib import Path
 from fastapi import FastAPI, Depends, Header, HTTPException, UploadFile, File, Form, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,6 +41,34 @@ def bootstrap_admin():
                 db.commit()
         finally:
             db.close()
+
+
+@app.on_event("startup")
+def seed_draft_reference_intervals():
+    """Load the sourced adult comparator catalogue as DRAFT records, never clinically active by default."""
+    catalogue = Path(__file__).resolve().parent.parent / "demo" / "cbc_adult_reference_intervals_draft.json"
+    if not catalogue.exists():
+        return
+    db = next(get_db())
+    try:
+        data = json.loads(catalogue.read_text(encoding="utf-8"))
+        for row in data.get("intervals", []):
+            exists = db.query(ReferenceInterval).filter_by(
+                analyte_code=row["analyte_code"], population=row["population"],
+                sex=row.get("sex", "ALL"), source=row["source"],
+                lower_value=float(row["lower_value"]), upper_value=float(row["upper_value"]),
+                unit=row["unit"]
+            ).first()
+            if not exists:
+                db.add(ReferenceInterval(
+                    analyte_code=row["analyte_code"], population=row["population"],
+                    sex=row.get("sex", "ALL"), lower_value=float(row["lower_value"]),
+                    upper_value=float(row["upper_value"]), unit=row["unit"],
+                    source=row["source"], created_by="catalogue-import", status="DRAFT"
+                ))
+        db.commit()
+    finally:
+        db.close()
 
 @app.middleware("http")
 async def require_api_auth(request: Request, call_next):
@@ -114,12 +143,14 @@ def result_detail(result_id: int, db: Session = Depends(get_db)):
     review = db.query(ResultReview).filter_by(result_id=result_id).first()
     events = db.query(AuditEvent).filter_by(result_id=result_id).order_by(AuditEvent.created_at.desc()).all()
     documents = db.query(ResultDocument).filter_by(result_id=result_id).order_by(ResultDocument.uploaded_at.desc()).all()
+    codes = list(result.values.keys())
+    intervals = db.query(ReferenceInterval).filter(ReferenceInterval.analyte_code.in_(codes)).order_by(ReferenceInterval.analyte_code, ReferenceInterval.sex).all() if codes else []
     document_rows = [{"id": d.id, "filename": d.filename, "content_type": d.content_type,
                       "uploaded_by": d.uploaded_by, "notes": d.notes, "uploaded_at": d.uploaded_at,
                       "parent_document_id": d.parent_document_id, "document_kind": d.document_kind}
                      for d in documents]
     return {"result": ResultOut.model_validate(result), "review": review, "audit": events,
-            "documents": document_rows}
+            "documents": document_rows, "reference_intervals": intervals}
 
 @app.post("/api/v1/samples", response_model=ResultOut, status_code=201)
 def create_sample(payload: ManualSample, request: Request, db: Session = Depends(get_db)):
@@ -211,12 +242,16 @@ def review_result(result_id: int, payload: ReviewIn, request: Request, db: Sessi
         raise HTTPException(422, "Reviewed analytes must match the received analyte set")
     corrected = {k: v.model_dump() for k, v in payload.reviewed_values.items()}
     reviewer_identity = request.state.user.get("sub", "staff")
+    unknown_comment_codes = set(payload.analyte_comments) - original_keys
+    if unknown_comment_codes:
+        raise HTTPException(422, "Per-analyte comments must match received analytes")
+    cleaned_comments = {k: str(v).strip() for k, v in payload.analyte_comments.items() if str(v).strip()}
     review = ResultReview(result_id=result_id, reviewer=reviewer_identity,
-                          comments=payload.comments, reviewed_values=corrected)
+                          comments=payload.comments, analyte_comments=cleaned_comments, reviewed_values=corrected)
     db.add(review)
     result.status = "REVIEWED"
     audit(db, reviewer_identity, "RESULT_REVIEWED", result_id,
-          {"comments": payload.comments, "corrections_made": corrected != result.values})
+          {"comments": payload.comments, "analyte_comments": list(cleaned_comments.keys()), "corrections_made": corrected != result.values})
     db.commit()
     return {"message": "Review recorded", "status": result.status, "reviewed_at": review.reviewed_at}
 

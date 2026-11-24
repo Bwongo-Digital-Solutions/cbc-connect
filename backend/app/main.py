@@ -674,7 +674,7 @@ def generate_branded_report(result_id: int, db: Session = Depends(get_db)):
                 left += 27 * mm
             except Exception:
                 pass
-        canvas.setFillColor(colors.HexColor("#17324D"))
+        canvas.setFillColor(font_ink)
         canvas.setFont("Helvetica-Bold", 14)
         canvas.drawString(left, height - 17 * mm, profile.clinic_name or "Clinic")
         canvas.setFont("Helvetica", 8)
@@ -692,7 +692,7 @@ def generate_branded_report(result_id: int, db: Session = Depends(get_db)):
         canvas.line(20 * mm, height - 36 * mm, width - 20 * mm, height - 36 * mm)
         canvas.setStrokeColor(colors.HexColor("#D8E1EA"))
         canvas.line(20 * mm, 17 * mm, width - 20 * mm, 17 * mm)
-        canvas.setFillColor(colors.HexColor("#536579"))
+        canvas.setFillColor(font_ink)
         canvas.setFont("Helvetica", 8)
         canvas.drawString(20 * mm, 11 * mm, footer_text[:130])
         canvas.drawString(20 * mm, 7 * mm, f"Contact: {phone_text}"[:130])
@@ -727,7 +727,7 @@ def generate_branded_report(result_id: int, db: Session = Depends(get_db)):
          Paragraph("<b>Analyzer</b>", styles["BodyText"]), escape(result.analyzer)],
     ]
     patient_table = Table(patient_rows, colWidths=[28*mm, 57*mm, 30*mm, 55*mm])
-    patient_table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),colors.HexColor("#F4F7FA")),
+    patient_table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),colors.HexColor("#F4F7FA")),("TEXTCOLOR",(0,0),(-1,-1),font_ink),
         ("GRID",(0,0),(-1,-1),0.35,colors.HexColor("#D8E1EA")),("VALIGN",(0,0),(-1,-1),"TOP"),
         ("LEFTPADDING",(0,0),(-1,-1),7),("RIGHTPADDING",(0,0),(-1,-1),7),
         ("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7)]))
@@ -741,7 +741,7 @@ def generate_branded_report(result_id: int, db: Session = Depends(get_db)):
                      Paragraph(escape(str((review.analyte_comments or {}).get(code, ""))), styles["SmallMuted"])])
     result_table = Table(rows, repeatRows=1, colWidths=[25*mm, 25*mm, 25*mm, 20*mm, 75*mm])
     result_table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),theme),
-        ("TEXTCOLOR",(0,0),(-1,0),colors.white),("GRID",(0,0),(-1,-1),0.35,colors.HexColor("#D8E1EA")),
+        ("TEXTCOLOR",(0,0),(-1,0),colors.white),("TEXTCOLOR",(0,1),(-1,-1),font_ink),("GRID",(0,0),(-1,-1),0.35,colors.HexColor("#D8E1EA")),
         ("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F7F9FC")]),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),7),
         ("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7)]))

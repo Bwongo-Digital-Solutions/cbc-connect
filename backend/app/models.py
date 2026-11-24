@@ -11,6 +11,7 @@ class CBCResult(Base):
     __table_args__ = (UniqueConstraint("sample_id", "device_id", name="uq_sample_device"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     sample_id: Mapped[str] = mapped_column(String(120), index=True)
+    patient_fields_from_analyzer: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
     patient_reference: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     patient_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     patient_age: Mapped[str | None] = mapped_column(String(80), nullable=True)

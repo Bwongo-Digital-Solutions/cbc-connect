@@ -147,11 +147,14 @@ def ingest(payload: AnalyzerPayload, x_device_id: str = Header(default="unregist
         raise HTTPException(status_code=409, detail="A result for this sample and device already exists")
     result = db.query(CBCResult).filter_by(sample_id=payload.sample_id, device_id="manual-entry", analyzer="MANUAL").first()
     values = {key: measurement.model_dump() for key, measurement in payload.values.items()}
+    incoming_patient_fields = [field for field in ("patient_reference", "patient_name", "patient_age", "patient_address")
+                               if getattr(payload, field) is not None and str(getattr(payload, field)).strip()]
     if result:
         result.patient_reference = payload.patient_reference or result.patient_reference
         result.patient_name = payload.patient_name or result.patient_name
         result.patient_age = payload.patient_age or result.patient_age
         result.patient_address = payload.patient_address or result.patient_address
+        result.patient_fields_from_analyzer = sorted(set(result.patient_fields_from_analyzer or []) | set(incoming_patient_fields))
         result.analyzer = payload.analyzer
         result.device_id = x_device_id
         result.observed_at = payload.observed_at
@@ -161,6 +164,7 @@ def ingest(payload: AnalyzerPayload, x_device_id: str = Header(default="unregist
     else:
         result = CBCResult(sample_id=payload.sample_id, patient_reference=payload.patient_reference,
             patient_name=payload.patient_name, patient_age=payload.patient_age, patient_address=payload.patient_address,
+            patient_fields_from_analyzer=incoming_patient_fields,
             analyzer=payload.analyzer, device_id=x_device_id, observed_at=payload.observed_at,
             status="PENDING_REVIEW", values=values)
         db.add(result)
@@ -409,9 +413,13 @@ def update_patient_details(result_id: int, payload: dict, request: Request, db: 
         value = str(payload.get(field) or "").strip()
         if len(value) > limit:
             raise HTTPException(422, f"{field.replace('_', ' ').title()} must be {limit} characters or fewer")
+        current_value = str(getattr(result, field) or "").strip()
+        analyzer_fields = set(result.patient_fields_from_analyzer or [])
         if field == "sample_id":
             if not value:
                 raise HTTPException(422, "Sample / accession ID cannot be empty")
+            if result.device_id != "manual-entry" and value != current_value:
+                raise HTTPException(409, "The sample ID was supplied by the analyzer and cannot be changed here")
             duplicate = db.query(CBCResult).filter(
                 CBCResult.sample_id == value,
                 CBCResult.device_id == result.device_id,
@@ -419,6 +427,8 @@ def update_patient_details(result_id: int, payload: dict, request: Request, db: 
             ).first()
             if duplicate:
                 raise HTTPException(409, "That sample ID already exists for this analyzer device")
+        elif field in analyzer_fields and value != current_value:
+            raise HTTPException(409, f"{field.replace('_', ' ').title()} was supplied by the analyzer and cannot be edited")
         setattr(result, field, value or None)
         updated.append(field)
     actor = request.state.user.get("sub", "staff")

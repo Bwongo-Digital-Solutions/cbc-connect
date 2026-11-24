@@ -2,7 +2,7 @@
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0009_clinician_signatory_and_font_color"
+revision = "0009_signatory_font_color"
 down_revision = "0008_analyte_review_comments"
 branch_labels = None
 depends_on = None

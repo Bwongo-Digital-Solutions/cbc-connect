@@ -117,3 +117,15 @@ footer{color:#8493a6}
 .pagination-controls button:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
 .pagination-page{min-width:76px;text-align:center;font-weight:700;color:#294967}
 @media(max-width:620px){.pagination{align-items:flex-start}.pagination-controls{width:100%;justify-content:space-between}.pagination-page{min-width:auto}}
+
+
+/* Separate pending and reviewed result queues */
+.results-queue-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:16px 0 18px;flex-wrap:wrap}
+.results-queue-toolbar>input{flex:1;min-width:230px;max-width:460px}
+.queue-tabs{display:flex;align-items:center;gap:6px;padding:4px;background:#edf3f8;border:1px solid #dce5ef;border-radius:11px}
+.queue-tabs button{display:flex;align-items:center;gap:9px;padding:9px 14px;background:transparent;color:#52647b;font-size:13px;font-weight:700;box-shadow:none}
+.queue-tabs button:hover{transform:none;box-shadow:none;background:#e2ebf3}
+.queue-tabs button.active{background:#fff;color:#075fa8;box-shadow:0 1px 4px rgba(20,47,77,.12)}
+.queue-tabs button span{display:inline-grid;place-items:center;min-width:23px;height:21px;padding:0 6px;border-radius:999px;background:#dce8f2;color:#294967;font-size:11px}
+.queue-tabs button.active span{background:#dceeff;color:#075fa8}
+@media(max-width:620px){.results-queue-toolbar{align-items:stretch}.queue-tabs{width:100%}.queue-tabs button{flex:1;justify-content:center}.results-queue-toolbar>input{max-width:none;width:100%}}

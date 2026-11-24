@@ -715,11 +715,13 @@ def generate_branded_report(result_id: int, db: Session = Depends(get_db)):
         ("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7)]))
     story.extend([patient_table, Paragraph("Reviewed CBC measurements", styles["SectionHeading"])])
     rows = [[Paragraph("<b>Analyte</b>", styles["BodyText"]), Paragraph("<b>Result</b>", styles["BodyText"]),
-             Paragraph("<b>Unit</b>", styles["BodyText"]), Paragraph("<b>Flag</b>", styles["BodyText"])]]
+             Paragraph("<b>Unit</b>", styles["BodyText"]), Paragraph("<b>Flag</b>", styles["BodyText"]),
+             Paragraph("<b>Doctor's comment</b>", styles["BodyText"])]]
     for code, value in review.reviewed_values.items():
         rows.append([escape(str(code)), escape(str(value.get("value", ""))),
-                     escape(str(value.get("unit") or "")), escape(str(value.get("flag") or ""))])
-    result_table = Table(rows, repeatRows=1, colWidths=[65*mm, 35*mm, 35*mm, 35*mm])
+                     escape(str(value.get("unit") or "")), escape(str(value.get("flag") or "")),
+                     Paragraph(escape(str((review.analyte_comments or {}).get(code, ""))), styles["SmallMuted"])])
+    result_table = Table(rows, repeatRows=1, colWidths=[25*mm, 25*mm, 25*mm, 20*mm, 75*mm])
     result_table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),theme),
         ("TEXTCOLOR",(0,0),(-1,0),colors.white),("GRID",(0,0),(-1,-1),0.35,colors.HexColor("#D8E1EA")),
         ("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.white,colors.HexColor("#F7F9FC")]),

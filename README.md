@@ -3,7 +3,8 @@
 CBC Connect is an independent CBC analyzer results receiving and review workspace. It is being developed as a standalone product first, with optional Bahmni Lite Lab Lite and Bahmni Standard OpenELIS adapters planned later.
 
 ## Current standalone development workflow
-- Results dashboard with status filtering and search by sample or patient reference.
+- Results dashboard with status filtering and search by sample, patient name, patient reference or analyzer.
+- Patient and specimen metadata: gender, patient contact, requesting officer, requested test, collection date/time and automatically recorded receipt date/time.
 - Manual sample registration using the laboratory accession/barcode as the sample ID.
 - Protocol-neutral JSON ingestion endpoint for normalized analyzer payloads.
 - Detailed result view showing original analyzer values.
@@ -37,7 +38,7 @@ See [the plain-language lab technician and clinician user guide](docs/lab-techni
 ## Report templates
 If a clinic has no DOCX template, use **Report templates → Generate sample template** to create an editable starter DOCX. The action reuses an existing DOCX template rather than creating duplicates. Customize and approve the starter under local laboratory procedures before use.
 
-DOCX templates are rendered with docxtpl and converted to PDF using headless LibreOffice. Template authors can use these Jinja placeholders: sample_id, patient_reference, analyzer, reviewer, comments, received_at, reviewed_at, and results. The results variable is a list of objects with code, value, unit and flag fields. Uploaded PDF files are retained for reference but are not mergeable templates.
+DOCX templates are rendered with docxtpl and converted to PDF using headless LibreOffice. Template authors can use these Jinja placeholders: sample_id, patient_reference, patient_name, patient_age, patient_address, gender, patient_contact, requesting_officer, requested_test, date_collected, collection_time, date_received, analyzer, reviewer, comments, received_at, reviewed_at, and results. The results variable is a list of objects with code, value, unit and flag fields. Uploaded PDF files are retained for reference but are not mergeable templates.
 
 ## API overview
 - `GET /api/v1/dashboard`

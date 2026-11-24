@@ -14,7 +14,7 @@ for fixture in backend/demo/synthetic_cbc_export*.json; do
     -H "X-Device-Id: ${DEVICE_ID}" \
     --data-binary "@${fixture}")
   case "$code" in
-    201) printf 'Loaded %s\n' "$fixture"; count=$((count + 1)) ;;
+    201) printf 'Loaded %s\n' "$fixture"; count=$((count + 1)) ;;\n    200) printf 'Enriched missing biodata or already complete: %s\n' "$fixture" ;;
     409) printf 'Already loaded (duplicate): %s\n' "$fixture" ;;
     *) cat /tmp/cbc-connect-demo-response.json; printf 'Failed loading %s (HTTP %s)\n' "$fixture" "$code" >&2; exit 1 ;;
   esac

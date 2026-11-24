@@ -92,12 +92,13 @@ A result marked **REVIEWED** is not automatically approved for patient release. 
 
 Before generating a final report:
 1. Open the CBC result and confirm the correct patient and sample identity.
-2. The **Sample / accession ID** and **Patient reference** are prefilled from the CBC result, alongside the patient name, age and address fields.
-3. Verify all five fields against the source CBC report and laboratory request. Edit any field when a correction is needed and supported by the source record.
-4. Select **Save report details**. The editable values are stored with the CBC result and included in the final report.
-5. A final report can only be generated after a result has a saved review.
-6. Select **Generate branded final PDF** to download the report, or **Print branded final PDF** to open the same branded report in the browser print dialog. The generated PDF uses the clinic's saved logo, theme colour, header, address and footer.
-7. Check the patient identity, sample details, measurements, units and comments before printing or sharing.
+2. Patient name, age, address and patient reference are filled from the incoming analyzer data when those fields are supplied. The sample/accession ID comes from the incoming result.
+3. Fields received from the analyzer are marked **Received from analyzer · read-only** and cannot be changed in the result viewer. This protects the original identity data.
+4. If the incoming data does not contain a patient field, that field remains editable so authorized staff can complete it from the approved source record. Details entered during manual sample registration also remain editable unless the analyzer later supplies that field.
+5. Verify all identity details against the source CBC report and laboratory request. If analyzer-supplied information appears wrong, stop and ask the supervisor to resolve it through the approved correction process; do not overwrite the received value in the viewer.
+6. Select **Save missing details** to save only editable fields. The application keeps analyzer-supplied identity values unchanged.
+7. A final report can only be generated after a result has a saved review. Select **Generate branded final PDF** to download the report, or **Print branded final PDF** to open it in the browser print dialog. The generated PDF uses the clinic's saved logo, theme colour, header, address and footer.
+8. Check the patient identity, sample details, measurements, units and comments before printing or sharing.
 
 The branded report footer includes **Powered by ClinicHIS** and the clinic contact numbers. The original uploaded source document and original analyzer measurements are not changed.
 
@@ -113,7 +114,7 @@ Clinic supervisors and administrators can open the **Clinic branding** tab to se
 
 Select **Save clinic branding**. The settings are stored in the clinic database and reused automatically; they do not need to be entered for every report. Return to this tab to edit the defaults. Changes apply to reports generated after the change; previously generated PDFs remain as they were.
 
-Patient name, age, address, patient reference and sample/accession ID are prefilled from the CBC result and can be edited in the report identity panel. Verify every value against the source records before saving and generating a report. Do not copy patient details from another record.
+Patient name, age, address and patient reference are taken from incoming analyzer data when supplied. Analyzer-supplied fields are read-only in the result viewer; only missing fields can be completed there. Sample/accession ID received from the analyzer is also read-only. Manually registered patient details remain editable unless a later analyzer message supplies that field. Verify every value against the source records. Do not copy patient details from another record.
 
 Only use a report for its intended purpose after the responsible staff have completed the clinic's approval process. A PDF uploaded as a source document is for viewing; it is not a report template.
 

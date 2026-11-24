@@ -121,6 +121,7 @@ class ClinicProfile(Base):
     email: Mapped[str] = mapped_column(String(160), default="")
     theme_color: Mapped[str] = mapped_column(String(7), default="#0879D9")
     font_color: Mapped[str] = mapped_column(String(7), default="#243447")
+    font_family: Mapped[str] = mapped_column(String(80), default="Arial")
     header_text: Mapped[str] = mapped_column(Text, default="")
     footer_text: Mapped[str] = mapped_column(Text, default="Powered by ClinicHIS")
     logo_path: Mapped[str | None] = mapped_column(String(500), nullable=True)

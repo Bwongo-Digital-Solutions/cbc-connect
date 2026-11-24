@@ -248,6 +248,8 @@ def review_result(result_id: int, payload: ReviewIn, request: Request, db: Sessi
     cleaned_comments = {k: str(v).strip() for k, v in payload.analyte_comments.items() if str(v).strip()}
     reviewer_account = db.query(UserAccount).filter_by(username=reviewer_identity, active=True).first()
     is_clinician = bool(reviewer_account and reviewer_account.role == "CLINICIAN")
+    if is_clinician and not all([reviewer_account.full_name, reviewer_account.credentials, reviewer_account.signature_path]):
+        raise HTTPException(422, "Complete your clinician signatory profile, including a signature image, before recording a clinician review")
     review = ResultReview(result_id=result_id, reviewer=reviewer_identity,
                           comments=payload.comments, analyte_comments=cleaned_comments, reviewed_values=corrected,
                           signatory_name=(reviewer_account.full_name if is_clinician else None),

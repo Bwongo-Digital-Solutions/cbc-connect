@@ -40,6 +40,7 @@ class ResultOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     sample_id: str
+    patient_fields_from_analyzer: list[str] = Field(default_factory=list)
     patient_reference: str | None
     patient_name: str | None = None
     patient_age: str | None = None

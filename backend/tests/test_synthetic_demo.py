@@ -16,5 +16,7 @@ def test_all_synthetic_demo_payloads_match_normalized_ingest_schema():
         assert len(payload.values) >= 15
         assert all(item.flag is None for item in payload.values.values())
         assert payload.sample_id.startswith("SYNTH-CBC-")
+        assert payload.patient_reference and payload.patient_reference.startswith("SYNTH-PATIENT-")
+        assert payload.patient_name and payload.patient_age and payload.patient_address
         sample_ids.add(payload.sample_id)
     assert len(sample_ids) == len(fixtures)

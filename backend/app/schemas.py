@@ -12,6 +12,11 @@ class AnalyzerPayload(BaseModel):
     patient_name: str | None = Field(default=None, max_length=200)
     patient_age: str | None = Field(default=None, max_length=80)
     patient_address: str | None = Field(default=None, max_length=1000)
+    gender: str | None = Field(default=None, max_length=30)
+    patient_contact: str | None = Field(default=None, max_length=80)
+    requesting_officer: str | None = Field(default=None, max_length=200)
+    requested_test: str | None = Field(default=None, max_length=2000)
+    collected_at: datetime | None = None
     analyzer: str = Field(min_length=1, max_length=120)
     observed_at: datetime | None = None
     values: dict[str, Measurement]
@@ -46,6 +51,11 @@ class ResultOut(BaseModel):
     patient_name: str | None = None
     patient_age: str | None = None
     patient_address: str | None = None
+    gender: str | None = None
+    patient_contact: str | None = None
+    requesting_officer: str | None = None
+    requested_test: str | None = None
+    collected_at: datetime | None = None
     analyzer: str
     device_id: str
     observed_at: datetime | None

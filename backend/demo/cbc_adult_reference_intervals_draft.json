@@ -1,0 +1,37 @@
+{
+  "catalogue_status": "DRAFT_FOR_LOCAL_LABORATORY_VERIFICATION",
+  "population": "Adults age 18 years and older only",
+  "not_for_clinical_use_until_verified": true,
+  "sources": {
+    "mayo_cbc": {
+      "name": "Mayo Clinic Laboratories — Complete Blood Cell Count (CBC) with Differential, Blood",
+      "url": "https://www.mayocliniclabs.com/test-catalog/overview/9109"
+    },
+    "uiowa_cbc": {
+      "name": "University of Iowa Health Care — Pathology Handbook, CBC",
+      "url": "https://www.healthcare.uiowa.edu/path_handbook/handbook/test299.html"
+    }
+  },
+  "intervals": [
+    {"analyte_code":"WBC","display_name":"White blood cell count","population":"Adult (18+)","sex":"ALL","lower_value":3.4,"upper_value":9.6,"unit":"10^9/L","source":"Mayo Clinic Laboratories — CBC with Differential, adult reference values"},
+    {"analyte_code":"RBC","display_name":"Red blood cell count","population":"Adult (18+)","sex":"MALE","lower_value":4.35,"upper_value":5.65,"unit":"10^12/L","source":"Mayo Clinic Laboratories — CBC with Differential, adult male reference values"},
+    {"analyte_code":"RBC","display_name":"Red blood cell count","population":"Adult (18+)","sex":"FEMALE","lower_value":3.92,"upper_value":5.13,"unit":"10^12/L","source":"Mayo Clinic Laboratories — CBC with Differential, adult female reference values"},
+    {"analyte_code":"HGB","display_name":"Hemoglobin","population":"Adult (18+)","sex":"MALE","lower_value":13.2,"upper_value":16.6,"unit":"g/dL","source":"Mayo Clinic Laboratories — CBC with Differential, adult male reference values"},
+    {"analyte_code":"HGB","display_name":"Hemoglobin","population":"Adult (18+)","sex":"FEMALE","lower_value":11.6,"upper_value":15.0,"unit":"g/dL","source":"Mayo Clinic Laboratories — CBC with Differential, adult female reference values"},
+    {"analyte_code":"HCT","display_name":"Hematocrit","population":"Adult (18+)","sex":"MALE","lower_value":38.3,"upper_value":48.6,"unit":"%","source":"Mayo Clinic Laboratories — CBC with Differential, adult male reference values"},
+    {"analyte_code":"HCT","display_name":"Hematocrit","population":"Adult (18+)","sex":"FEMALE","lower_value":35.5,"upper_value":44.9,"unit":"%","source":"Mayo Clinic Laboratories — CBC with Differential, adult female reference values"},
+    {"analyte_code":"MCV","display_name":"Mean corpuscular volume","population":"Adult (18+)","sex":"ALL","lower_value":78.2,"upper_value":97.9,"unit":"fL","source":"Mayo Clinic Laboratories — CBC with Differential, adult reference values"},
+    {"analyte_code":"MCH","display_name":"Mean corpuscular hemoglobin","population":"Adult (18+)","sex":"ALL","lower_value":25,"upper_value":35,"unit":"pg","source":"University of Iowa Health Care — Pathology Handbook, adult CBC reference ranges"},
+    {"analyte_code":"MCHC","display_name":"Mean corpuscular hemoglobin concentration","population":"Adult (18+)","sex":"ALL","lower_value":32,"upper_value":36,"unit":"g/dL","source":"University of Iowa Health Care — Pathology Handbook, adult CBC reference ranges"},
+    {"analyte_code":"RDW","display_name":"Red cell distribution width (CV)","population":"Adult (18+)","sex":"MALE","lower_value":11.8,"upper_value":14.5,"unit":"%","source":"Mayo Clinic Laboratories — CBC with Differential, adult male reference values"},
+    {"analyte_code":"RDW","display_name":"Red cell distribution width (CV)","population":"Adult (18+)","sex":"FEMALE","lower_value":12.2,"upper_value":16.1,"unit":"%","source":"Mayo Clinic Laboratories — CBC with Differential, adult female reference values"},
+    {"analyte_code":"PLT","display_name":"Platelet count","population":"Adult (18+)","sex":"MALE","lower_value":135,"upper_value":317,"unit":"10^9/L","source":"Mayo Clinic Laboratories — CBC with Differential, adult male reference values"},
+    {"analyte_code":"PLT","display_name":"Platelet count","population":"Adult (18+)","sex":"FEMALE","lower_value":157,"upper_value":371,"unit":"10^9/L","source":"Mayo Clinic Laboratories — CBC with Differential, adult female reference values"},
+    {"analyte_code":"MPV","display_name":"Mean platelet volume","population":"Adult (18+)","sex":"ALL","lower_value":9.4,"upper_value":12.3,"unit":"fL","source":"University of Iowa Health Care — Pathology Handbook, adult CBC reference ranges"},
+    {"analyte_code":"NEU#","display_name":"Absolute neutrophil count","population":"Adult (18+)","sex":"ALL","lower_value":1.56,"upper_value":6.45,"unit":"10^9/L","source":"Mayo Clinic Laboratories — CBC with Differential, adult reference values"},
+    {"analyte_code":"LYM#","display_name":"Absolute lymphocyte count","population":"Adult (18+)","sex":"ALL","lower_value":0.95,"upper_value":3.07,"unit":"10^9/L","source":"Mayo Clinic Laboratories — CBC with Differential, adult reference values"},
+    {"analyte_code":"MONO#","display_name":"Absolute monocyte count","population":"Adult (18+)","sex":"ALL","lower_value":0.26,"upper_value":0.81,"unit":"10^9/L","source":"Mayo Clinic Laboratories — CBC with Differential, adult reference values"},
+    {"analyte_code":"EOS#","display_name":"Absolute eosinophil count","population":"Adult (18+)","sex":"ALL","lower_value":0.03,"upper_value":0.48,"unit":"10^9/L","source":"Mayo Clinic Laboratories — CBC with Differential, adult reference values"},
+    {"analyte_code":"BASO#","display_name":"Absolute basophil count","population":"Adult (18+)","sex":"ALL","lower_value":0.01,"upper_value":0.08,"unit":"10^9/L","source":"Mayo Clinic Laboratories — CBC with Differential, adult reference values"}
+  ]
+}

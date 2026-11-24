@@ -179,14 +179,16 @@ def ingest(payload: AnalyzerPayload, response: Response,
         "patient_reference", "patient_name", "patient_age", "patient_address", "gender",
         "patient_contact", "requesting_officer", "requested_test", "collected_at"
     ) if getattr(payload, field) is not None and str(getattr(payload, field)).strip()]
+    if payload.collected_at or payload.observed_at:
+        incoming_patient_fields = sorted(set(incoming_patient_fields) | {"collected_at"})
     existing = db.query(CBCResult).filter_by(sample_id=payload.sample_id, device_id=x_device_id).first()
     if existing:
         # Analyzer retries may safely enrich missing biodata, but never replace
         # existing identity values or the original CBC measurements.
         enriched_fields = []
         for field in incoming_patient_fields:
-            incoming_value = getattr(payload, field)
-            if not str(getattr(existing, field) or "").strip():
+            incoming_value = (payload.collected_at or payload.observed_at) if field == "collected_at" else getattr(payload, field)
+            if incoming_value is not None and not str(getattr(existing, field) or "").strip():
                 setattr(existing, field, incoming_value)
                 enriched_fields.append(field)
         if enriched_fields:
@@ -208,6 +210,8 @@ def ingest(payload: AnalyzerPayload, response: Response,
         result.patient_address = payload.patient_address or result.patient_address
         for field in ("gender", "patient_contact", "requesting_officer", "requested_test", "collected_at"):
             incoming = getattr(payload, field)
+            if field == "collected_at":
+                incoming = incoming or payload.observed_at
             if incoming is not None:
                 setattr(result, field, incoming)
         result.patient_fields_from_analyzer = sorted(set(result.patient_fields_from_analyzer or []) | set(incoming_patient_fields))

@@ -27,6 +27,7 @@ class ManualSample(BaseModel):
 class ReviewIn(BaseModel):
     reviewer: str | None = None
     comments: str | None = None
+    analyte_comments: dict[str, str] = Field(default_factory=dict)
     reviewed_values: dict[str, Measurement]
 
 class AnalyteIn(BaseModel):

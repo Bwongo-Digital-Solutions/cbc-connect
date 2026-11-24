@@ -1,17 +1,20 @@
 import { FormEvent, useEffect, useState } from 'react'
 
 type Profile = {
-  clinic_name:string; address:string; phone:string; email:string; theme_color:string;
+  clinic_name:string; address:string; phone:string; email:string; theme_color:string; font_color:string;
   header_text:string; footer_text:string; has_logo:boolean; logo_display_mode:'header'|'watermark'|'background'|'both'; logo_opacity:number
 }
 type Props = { api:string; token:string }
 const defaults:Profile = {
   clinic_name:'Clinic', address:'', phone:'0775-872-454, 0751-319-201', email:'',
-  theme_color:'#0879D9', header_text:'', footer_text:'Powered by ClinicHIS', has_logo:false, logo_display_mode:'header', logo_opacity:0.10
+  theme_color:'#0879D9', font_color:'#243447', header_text:'', footer_text:'Powered by ClinicHIS', has_logo:false, logo_display_mode:'header', logo_opacity:0.10
 }
 export default function ClinicBranding({api,token}:Props){
  const [profile,setProfile]=useState<Profile>(defaults)
  const [logo,setLogo]=useState<File|null>(null)
+ const [clinician,setClinician]=useState<{username:string;full_name:string;credentials:string;has_signature:boolean;has_stamp:boolean}|null>(null)
+ const [signature,setSignature]=useState<File|null>(null)
+ const [stamp,setStamp]=useState<File|null>(null)
  const [logoUrl,setLogoUrl]=useState('')
  const [selectedLogoUrl,setSelectedLogoUrl]=useState('')
  const [busy,setBusy]=useState(false)
@@ -23,6 +26,8 @@ export default function ClinicBranding({api,token}:Props){
    const response=await fetch(api+'/api/v1/clinic-profile',{headers})
    if(!response.ok)throw new Error('Unable to load clinic branding')
    const data=await response.json();setProfile({...defaults,...data})
+   const clinicianResponse=await fetch(api+'/api/v1/users/me/profile',{headers})
+   if(clinicianResponse.ok)setClinician(await clinicianResponse.json());else setClinician(null)
    if(data.has_logo){
     const image=await fetch(api+'/api/v1/clinic-profile/logo',{headers})
     if(image.ok){const blob=await image.blob();setLogoUrl(old=>{if(old)URL.revokeObjectURL(old);return URL.createObjectURL(blob)})}
@@ -47,11 +52,29 @@ export default function ClinicBranding({api,token}:Props){
    await load()
   }catch(e){setError((e as Error).message)}finally{setBusy(false)}
  }
+
+ async function saveClinician(e:FormEvent){
+  e.preventDefault();if(!clinician)return;setBusy(true);setError('');setMessage('')
+  try{
+   const response=await fetch(api+'/api/v1/users/me/profile',{method:'PUT',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({full_name:clinician.full_name,credentials:clinician.credentials})})
+   const data=await response.json();if(!response.ok)throw new Error(data.detail||'Unable to save clinician details')
+   for(const [kind,file] of [['signature',signature],['stamp',stamp]] as const){
+    if(!file)continue
+    const form=new FormData();form.append('file',file)
+    const upload=await fetch(api+'/api/v1/users/me/'+kind,{method:'POST',headers,body:form})
+    const result=await upload.json();if(!upload.ok)throw new Error(result.detail||('Unable to upload '+kind))
+   }
+   setSignature(null);setStamp(null)
+   const refreshed=await fetch(api+'/api/v1/users/me/profile',{headers});if(refreshed.ok)setClinician(await refreshed.json())
+   setMessage('Your clinician signatory profile is saved. It will be captured on reviews you record from now on.')
+  }catch(e){setError((e as Error).message)}finally{setBusy(false)}
+ }
+
  function field(name:Exclude<keyof Profile,'has_logo'>,label:string,wide=false){
   return <label className={wide?'branding-wide':''}>{label}
    {name==='address'||name==='header_text'||name==='footer_text'
     ?<textarea rows={name==='address'?3:2} value={String(profile[name]||'')} onChange={e=>setProfile({...profile,[name]:e.target.value})}/>
-    :<input value={String(profile[name]||'')} type={name==='theme_color'?'color':'text'} onChange={e=>setProfile({...profile,[name]:e.target.value})}/>}
+    :<input value={String(profile[name]||'')} type={name==='theme_color'||name==='font_color'?'color':'text'} onChange={e=>setProfile({...profile,[name]:e.target.value})}/>}
   </label>
  }
  return <section className="panel clinic-branding">
@@ -60,6 +83,7 @@ export default function ClinicBranding({api,token}:Props){
   <form className="form branding-form" onSubmit={save}>
    {field('clinic_name','Clinic name')}
    {field('theme_color','Theme colour (hex, e.g. #0879D9)')}
+   {field('font_color','Document font colour')}
    {field('address','Clinic address',true)}
    {field('phone','Contact numbers')}
    {field('email','Email address')}
@@ -79,12 +103,24 @@ export default function ClinicBranding({api,token}:Props){
    </label>
    {(logoUrl||logo)&&<div className="branding-logo-preview branding-wide"><img src={logo?selectedLogoUrl:logoUrl} alt="Clinic logo preview"/><span>{logo?.name||'Current saved logo'}</span></div>}
    <div className="branding-wide branding-preview" style={{borderTopColor:profile.theme_color}}>
-    <strong style={{color:profile.theme_color}}>{profile.clinic_name||'Clinic name'}</strong>
-    <span>{profile.address||'Clinic address appears in the document header'}</span>
-    <small>{profile.footer_text||'Powered by ClinicHIS'} · {profile.phone||'0775-872-454, 0751-319-201'}</small>
+    <strong style={{color:profile.font_color}}>{profile.clinic_name||'Clinic name'}</strong>
+    <span style={{color:profile.font_color}}>{profile.address||'Clinic address appears in the document header'}</span>
+    <small style={{color:profile.font_color}}>{profile.footer_text||'Powered by ClinicHIS'} · {profile.phone||'0775-872-454, 0751-319-201'}</small>
    </div>
    <div className="branding-wide"><button disabled={busy}>{busy?'Saving…':'Save clinic branding'}</button></div>
   </form>
+
+  {clinician&&<section className="signatory-settings">
+   <div className="panel-head"><div><h3>My clinician signatory</h3><p className="muted">These details belong to your signed-in clinician account and are captured when you record a new review. They do not retroactively change earlier reviews.</p></div></div>
+   <form className="form branding-form" onSubmit={saveClinician}>
+    <label>Doctor's full name<input required maxLength={200} value={clinician.full_name} onChange={e=>setClinician({...clinician,full_name:e.target.value})} placeholder="Name as it should appear on reports"/></label>
+    <label>Professional credentials<input required maxLength={200} value={clinician.credentials} onChange={e=>setClinician({...clinician,credentials:e.target.value})} placeholder="e.g. MBChB, MMed (Pathology), Registration No."/></label>
+    <label>Signature image (PNG or JPG, max 2 MB)<input type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" onChange={e=>setSignature(e.target.files?.[0]||null)}/><small className="muted">{signature?.name||(clinician.has_signature?'Signature image on file':'No signature image uploaded')}</small></label>
+    <label>Official stamp (optional, PNG or JPG, max 2 MB)<input type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" onChange={e=>setStamp(e.target.files?.[0]||null)}/><small className="muted">{stamp?.name||(clinician.has_stamp?'Stamp image on file':'No stamp image uploaded')}</small></label>
+    <div className="branding-wide"><button disabled={busy}>{busy?'Saving…':'Save clinician signatory'}</button></div>
+   </form>
+   <p className="muted">Only accounts assigned the CLINICIAN role can configure this section. Signature and stamp images are visual marks; they are not cryptographic digital signatures.</p>
+  </section>}
   <p className="muted">The clinic logo can appear in the header, as a faint centered watermark, as a full-page background image, or in both header and watermark positions. Opacity is saved with the clinic profile and reused on newly generated final PDFs. Keep watermark/background opacity low to preserve report readability. The standard footer always includes “Powered by ClinicHIS” and the clinic contact numbers. Existing uploaded source documents are never changed.</p>
  </section>
 }

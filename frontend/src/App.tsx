@@ -29,12 +29,14 @@ async function request(path:string, init:RequestInit={}) {
  if(!response.ok){let message='Request failed';try{const body=await response.json();message=body.detail||message}catch{};throw new Error(message)}
  return response.status===204?null:response.json()
 }
+function localDateKey(value:string|Date){const date=value instanceof Date?value:new Date(value);if(Number.isNaN(date.getTime()))return '';return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`}
 export default function App(){
  const [token,setToken]=useState(()=>localStorage.getItem('cbc_token')||'')
  const [credentials,setCredentials]=useState({username:'admin',password:''})
  const [loginError,setLoginError]=useState('')
  const [tab,setTab]=useState('results'),[results,setResults]=useState<Result[]>([]),[counts,setCounts]=useState({total:0,pending:0,reviewed:0})
- const [query,setQuery]=useState(''),[status,setStatus]=useState('PENDING_REVIEW'),[selected,setSelected]=useState<Detail|null>(null)
+ const [query,setQuery]=useState(''),[status,setStatus]=useState('PENDING_TODAY'),[selected,setSelected]=useState<Detail|null>(null)
+ const [todayKey,setTodayKey]=useState(()=>localDateKey(new Date()))
  const [pageSize,setPageSize]=useState(10),[page,setPage]=useState(1)
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false)
  const emptySample={sample_id:'',patient_reference:'',patient_name:'',patient_age:'',patient_address:'',gender:'',patient_contact:'',requesting_officer:'',requested_test:'',collected_at:''}
@@ -81,9 +83,11 @@ export default function App(){
    window.removeEventListener('storage',handleStorage)
   }
  },[token])
+ useEffect(()=>{const now=new Date();const nextMidnight=new Date(now);nextMidnight.setHours(24,0,0,50);const timer=setTimeout(()=>setTodayKey(localDateKey(new Date())),Math.max(1000,nextMidnight.getTime()-now.getTime()));return()=>clearTimeout(timer)},[todayKey])
+ const queueCounts=useMemo(()=>{const pending=results.filter(r=>r.status!=='REVIEWED');return {today:pending.filter(r=>localDateKey(r.received_at)===todayKey).length,older:pending.filter(r=>localDateKey(r.received_at)<todayKey&&!!localDateKey(r.received_at)).length,reviewed:results.filter(r=>r.status==='REVIEWED').length}},[results,todayKey])
  const analyzerPatientFields=new Set(selected?.result.patient_fields_from_analyzer||[])
  const sampleIdFromAnalyzer=!!selected&&selected.result.device_id!=="manual-entry"
- const filtered=useMemo(()=>results.filter(r=>r.status===status&&[r.sample_id,r.patient_reference||'',r.patient_name||'',r.analyzer].join(' ').toLowerCase().includes(query.toLowerCase())),[results,status,query])
+ const filtered=useMemo(()=>results.filter(r=>{const receivedDate=localDateKey(r.received_at);const matchesStatus=status==='PENDING_TODAY'?r.status!=='REVIEWED'&&receivedDate===todayKey:status==='NON_REVIEWED'?r.status!=='REVIEWED'&&!!receivedDate&&receivedDate<todayKey:r.status==='REVIEWED';return matchesStatus&&[r.sample_id,r.patient_reference||'',r.patient_name||'',r.analyzer].join(' ').toLowerCase().includes(query.toLowerCase())}),[results,status,query,todayKey])
  const pageCount=Math.max(1,Math.ceil(filtered.length/pageSize))
  const paginatedResults=useMemo(()=>filtered.slice((page-1)*pageSize,page*pageSize),[filtered,page,pageSize])
  useEffect(()=>{setPage(1)},[query,status,pageSize])
@@ -120,9 +124,10 @@ export default function App(){
   {tab==='results'&&<section className="panel"><div className="panel-head"><div><h2>Results queue</h2><p className="muted">Original analyzer measurements are retained separately from reviewed values.</p></div><button className="secondary" onClick={refresh}>Refresh</button></div>
    <div className="results-queue-toolbar">
     <div className="queue-tabs" role="tablist" aria-label="Result review status">
-     <button type="button" role="tab" aria-selected={status==='PENDING_REVIEW'} className={status==='PENDING_REVIEW'?'active':''} onClick={()=>setStatus('PENDING_REVIEW')}>Pending <span>{counts.pending}</span></button>
-     <button type="button" role="tab" aria-selected={status==='REVIEWED'} className={status==='REVIEWED'?'active':''} onClick={()=>setStatus('REVIEWED')}>Reviewed <span>{counts.reviewed}</span></button>
-    </div>
+      <button type="button" role="tab" aria-selected={status==='PENDING_TODAY'} className={status==='PENDING_TODAY'?'active':''} onClick={()=>setStatus('PENDING_TODAY')}>Pending Today <span>{queueCounts.today}</span></button>
+      <button type="button" role="tab" aria-selected={status==='NON_REVIEWED'} className={status==='NON_REVIEWED'?'active':''} onClick={()=>setStatus('NON_REVIEWED')}>Non-reviewed <span>{queueCounts.older}</span></button>
+      <button type="button" role="tab" aria-selected={status==='REVIEWED'} className={status==='REVIEWED'?'active':''} onClick={()=>setStatus('REVIEWED')}>Reviewed <span>{queueCounts.reviewed}</span></button>
+     </div>
     <input placeholder="Search patient name, sample ID, reference or analyzer" value={query} onChange={e=>setQuery(e.target.value)}/>
    </div>
    {filtered.length===0?<div className="empty"><div className="empty-icon">＋</div><b>No matching results</b><p>Analyzer results will appear here after ingestion, or register a sample manually.</p></div>:<div className="table-wrap"><table><thead><tr><th>Sample ID</th><th>Patient name</th><th>Patient reference</th><th>Analyzer</th><th>Received</th><th>Status</th><th></th></tr></thead><tbody>{paginatedResults.map(r=><tr key={r.id}><td><b>{r.sample_id}</b></td><td>{r.patient_name||'—'}</td><td>{r.patient_reference||'—'}</td><td>{r.analyzer}</td><td>{new Date(r.received_at).toLocaleString()}</td><td><span className={'status '+(r.status==='REVIEWED'?'done':'')}>{r.status.replace('_',' ')}</span></td><td><button className="link" onClick={()=>openResult(r.id)}>Open</button>{r.status==='REVIEWED'&&<button type="button" className="link print-result-action" onClick={()=>printBrandedReport(r.id,setError)}>Print</button>}</td></tr>)}</tbody></table></div>}
